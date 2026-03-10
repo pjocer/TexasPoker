@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>德州扑克</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <!-- 启动界面 -->
+    <div id="setup-screen">
+        <div class="setup-container">
+            <h1>TEXAS POKER</h1>
+            <p class="subtitle">德州扑克</p>
+
+            <div class="form-group">
+                <label>游戏模式</label>
+                <div class="mode-selector">
+                    <div class="mode-btn active" data-mode="standard">
+                        <div class="mode-title">标准德州</div>
+                        <div class="mode-desc">52张牌 (2-A)</div>
+                    </div>
+                    <div class="mode-btn" data-mode="shortDeck">
+                        <div class="mode-title">短牌德州</div>
+                        <div class="mode-desc">36张牌 (6-A)</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>玩家人数 (含你自己)</label>
+                <select id="player-count">
+                    <option value="2">2 人</option>
+                    <option value="3">3 人</option>
+                    <option value="4">4 人</option>
+                    <option value="5">5 人</option>
+                    <option value="6" selected>6 人</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>起始筹码</label>
+                <input type="number" id="starting-chips" value="1000" min="100" step="100">
+            </div>
+
+            <div class="form-group">
+                <label>小盲注</label>
+                <input type="number" id="small-blind" value="10" min="1">
+            </div>
+
+            <div class="form-group">
+                <label>大盲注</label>
+                <input type="number" id="big-blind" value="20" min="2">
+            </div>
+
+            <button class="start-btn" id="start-btn">开始游戏</button>
+        </div>
+    </div>
+
+    <!-- 游戏界面 -->
+    <div id="game-screen">
+        <!-- 信息面板 -->
+        <div class="info-panel">
+            <div class="game-mode-label">标准德州</div>
+            <div class="hand-number">第 0 手</div>
+        </div>
+
+        <!-- 日志面板 -->
+        <div class="log-panel">
+            <h3>游戏日志</h3>
+            <div class="log-content"></div>
+        </div>
+
+        <!-- 牌桌区域 -->
+        <div class="table-area">
+            <div class="table-felt"></div>
+
+            <!-- 底池 -->
+            <div class="pot-display">
+                <div class="pot-label">POT</div>
+                <div class="pot-amount">0</div>
+            </div>
+
+            <!-- 公共牌 -->
+            <div class="community-cards"></div>
+        </div>
+
+        <!-- 操作面板 -->
+        <div class="action-panel hidden"></div>
+
+        <!-- 下一手/重新开始 -->
+        <button class="next-hand-btn hidden">下一手</button>
+        <button class="restart-btn hidden">返回主菜单</button>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/constants.js"></script>
+    <script src="js/card.js"></script>
+    <script src="js/deck.js"></script>
+    <script src="js/evaluator.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/ai.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
