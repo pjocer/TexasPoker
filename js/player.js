@@ -8,6 +8,7 @@ class Player {
         this.name = name;
         this.chips = chips;
         this.isHuman = isHuman;
+        this.playerId = null;      // 网络标识 (WebSocket 连接 ID)
         this.holeCards = [];
         this.currentBet = 0;       // 当前轮下注额
         this.totalBet = 0;         // 本手牌总下注额
@@ -53,4 +54,28 @@ class Player {
     get isInHand() {
         return !this.isFolded && !this.isBusted;
     }
+
+    toJSON(showCards = false) {
+        return {
+            id: this.id,
+            name: this.name,
+            chips: this.chips,
+            isHuman: this.isHuman,
+            playerId: this.playerId,
+            holeCards: showCards ? this.holeCards.map(c => c.toJSON()) : this.holeCards.map(() => null),
+            currentBet: this.currentBet,
+            totalBet: this.totalBet,
+            isFolded: this.isFolded,
+            isAllIn: this.isAllIn,
+            isBusted: this.isBusted,
+            isDealer: this.isDealer,
+            lastAction: this.lastAction,
+            handResult: this.handResult,
+            seatIndex: this.seatIndex
+        };
+    }
+}
+
+if (typeof module !== 'undefined') {
+    module.exports = { Player };
 }

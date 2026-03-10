@@ -15,6 +15,8 @@ class UI {
 
         this.playerSeats = [];
         this.game = null;
+        this.network = null;
+        this._currentOnlineActions = null;
 
         // 倒计时
         this.timerInterval = null;
@@ -75,19 +77,23 @@ class UI {
      * 更新整个游戏状态
      */
     updateState(state) {
+        this._lastState = state;
         this.updatePot(state.pot);
         this.updateCommunityCards(state.communityCards);
         this.updatePlayers(state);
         this.updateInfoPanel(state);
 
-        // 操作面板
-        if (state.currentPlayerIndex >= 0 &&
-            state.players[state.currentPlayerIndex] &&
-            state.players[state.currentPlayerIndex].isHuman) {
-            this.showActionPanel(state);
-        } else {
-            this.hideActionPanel();
+        // 单机模式: 操作面板由本地 game 控制
+        if (!this.network) {
+            if (state.currentPlayerIndex >= 0 &&
+                state.players[state.currentPlayerIndex] &&
+                state.players[state.currentPlayerIndex].isHuman) {
+                this.showActionPanel(state);
+            } else {
+                this.hideActionPanel();
+            }
         }
+        // 联网模式: 操作面板由 your_turn 消息触发 (showOnlineActionPanel)
     }
 
     updatePot(pot) {
@@ -112,6 +118,9 @@ class UI {
     }
 
     updatePlayers(state) {
+        const isOnline = !!this.network;
+        const myPlayerId = state.myPlayerId;
+
         state.players.forEach((player, index) => {
             const seat = this.playerSeats[index];
             if (!seat) return;
@@ -159,12 +168,22 @@ class UI {
                 actionEl.dataset.lastAction = '';
             }
 
-            // 手牌 (仅在牌发生变化时才重建, 避免重复触发发牌动画)
-            const showCards = player.isHuman ||
-                (state.phase === GamePhase.SHOWDOWN && player.isInHand);
+            // 手牌
+            // 联网模式: 服务端已经处理了手牌可见性 (自己的牌有数据, 别人的为null)
+            // 单机模式: 本地判断
+            let showCards;
+            if (isOnline) {
+                // 有非null的牌数据就显示
+                const hasCardData = player.holeCards && player.holeCards.length > 0 && player.holeCards[0] !== null;
+                showCards = hasCardData;
+            } else {
+                showCards = player.isHuman ||
+                    (state.phase === GamePhase.SHOWDOWN && player.isInHand);
+            }
+
             const cardCount = (player.holeCards && !player.isBusted) ? player.holeCards.length : 0;
             const cardKey = cardCount > 0
-                ? `${cardCount}-${showCards ? player.holeCards.map(c => c.rank + c.suit).join(',') : 'hidden'}`
+                ? `${cardCount}-${showCards ? player.holeCards.map(c => c ? (c.rank + c.suit) : 'x').join(',') : 'hidden'}`
                 : 'none';
 
             if (cardsEl.dataset.cardKey !== cardKey) {
@@ -218,12 +237,37 @@ class UI {
     }
 
     /**
-     * 显示操作面板
+     * 显示操作面板 (单机模式)
      */
     showActionPanel(state) {
         if (!this.game) return;
 
         const actions = this.game.getAvailableActions();
+        this._renderActionPanel(actions, state, (action) => {
+            this.hideActionPanel();
+            this.game.submitHumanAction(action);
+        });
+    }
+
+    /**
+     * 显示操作面板 (联网模式)
+     */
+    showOnlineActionPanel(actions) {
+        this._currentOnlineActions = actions;
+        // 从最近的game_state中获取大盲注和当前下注用于preset计算
+        // 我们使用一个简单的默认state对象
+        const state = this._lastState || { bigBlind: 20, currentBet: 0, pot: 0 };
+        this._renderActionPanel(actions, state, (action) => {
+            this._currentOnlineActions = null;
+            this.hideActionPanel();
+            this.network.sendAction(action.action, action.amount);
+        });
+    }
+
+    /**
+     * 通用操作面板渲染
+     */
+    _renderActionPanel(actions, state, onAction) {
         this.actionPanel.innerHTML = '';
         this.actionPanel.classList.remove('hidden');
 
@@ -247,14 +291,11 @@ class UI {
             remaining--;
             if (remaining <= 0) {
                 this._clearTimer();
-                // 超时自动弃牌/过牌
                 const check = actions.find(a => a.action === Action.CHECK);
                 if (check) {
-                    this.hideActionPanel();
-                    this.game.submitHumanAction({ action: Action.CHECK, amount: 0 });
+                    onAction({ action: Action.CHECK, amount: 0 });
                 } else {
-                    this.hideActionPanel();
-                    this.game.submitHumanAction({ action: Action.FOLD, amount: 0 });
+                    onAction({ action: Action.FOLD, amount: 0 });
                 }
                 return;
             }
@@ -294,8 +335,7 @@ class UI {
             }
 
             btn.addEventListener('click', () => {
-                this.hideActionPanel();
-                this.game.submitHumanAction({
+                onAction({
                     action: act.action,
                     amount: act.amount || 0
                 });
@@ -309,27 +349,23 @@ class UI {
             const raiseControls = document.createElement('div');
             raiseControls.className = 'raise-controls';
 
-            // 快捷加注按钮行
             const presetRow = document.createElement('div');
             presetRow.className = 'raise-presets';
 
             const presets = [];
-            const bb = state.bigBlind;
+            const bb = state.bigBlind || 20;
             const currentBet = state.currentBet || 0;
 
             if (currentBet <= bb) {
-                // 无人加注，提供 open-raise 尺度
                 presets.push({ label: '2.5x', amount: Math.floor(bb * 2.5) });
                 presets.push({ label: '3x', amount: bb * 3 });
                 presets.push({ label: '4x', amount: bb * 4 });
             } else {
-                // 已有加注，提供 3bet/4bet/5bet
                 presets.push({ label: '3Bet', amount: currentBet * 3 });
                 presets.push({ label: '4Bet', amount: Math.floor(currentBet * 3.5) });
                 presets.push({ label: '5Bet', amount: Math.min(currentBet * 5, raiseAction.max) });
             }
-            // 底池大小加注
-            presets.push({ label: 'Pot', amount: state.pot + currentBet * 2 });
+            presets.push({ label: 'Pot', amount: (state.pot || 0) + currentBet * 2 });
 
             const slider = document.createElement('input');
             slider.type = 'range';
@@ -364,8 +400,7 @@ class UI {
             raiseBtn.textContent = '加注';
 
             raiseBtn.addEventListener('click', () => {
-                this.hideActionPanel();
-                this.game.submitHumanAction({
+                onAction({
                     action: Action.RAISE,
                     amount: parseInt(slider.value)
                 });
@@ -381,6 +416,7 @@ class UI {
 
     hideActionPanel() {
         this._clearTimer();
+        this._currentOnlineActions = null;
         this.actionPanel.classList.add('hidden');
     }
 
@@ -456,11 +492,13 @@ class UI {
      */
     showSetupScreen() {
         document.getElementById('setup-screen').style.display = 'flex';
+        document.getElementById('room-screen').style.display = 'none';
         document.getElementById('game-screen').style.display = 'none';
     }
 
     showGameScreen() {
         document.getElementById('setup-screen').style.display = 'none';
+        document.getElementById('room-screen').style.display = 'none';
         document.getElementById('game-screen').style.display = 'block';
     }
 }

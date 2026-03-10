@@ -24,4 +24,17 @@ class Card {
     equals(other) {
         return this.suit === other.suit && this.rank === other.rank;
     }
+
+    toJSON() {
+        return { suit: this.suit, rank: this.rank };
+    }
+
+    static fromJSON(data) {
+        if (!data) return null;
+        return new Card(data.suit, data.rank);
+    }
+}
+
+if (typeof module !== 'undefined') {
+    module.exports = { Card };
 }

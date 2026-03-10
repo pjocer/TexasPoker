@@ -208,3 +208,7 @@ class HandEvaluator {
         return HandEvaluator.compareScores(hand1.score, hand2.score);
     }
 }
+
+if (typeof module !== 'undefined') {
+    module.exports = { HandEvaluator };
+}

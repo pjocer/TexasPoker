@@ -43,3 +43,7 @@ class Deck {
         return this.cards.length;
     }
 }
+
+if (typeof module !== 'undefined') {
+    module.exports = { Deck };
+}

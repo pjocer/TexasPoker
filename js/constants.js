@@ -96,6 +96,25 @@ const HAND_RANK_NAMES_SHORT = {
     9: '皇家同花顺'
 };
 
+// 网络消息类型
+const MessageType = {
+    // 客户端 → 服务端
+    CREATE_ROOM: 'create_room',
+    JOIN_ROOM: 'join_room',
+    START_GAME: 'start_game',
+    PLAYER_ACTION: 'player_action',
+    NEXT_HAND: 'next_hand',
+    // 服务端 → 客户端
+    ROOM_CREATED: 'room_created',
+    ROOM_JOINED: 'room_joined',
+    ROOM_ERROR: 'room_error',
+    GAME_STATE: 'game_state',
+    YOUR_TURN: 'your_turn',
+    MESSAGE: 'message',
+    HAND_COMPLETE: 'hand_complete',
+    GAME_OVER: 'game_over'
+};
+
 // AI 玩家名字
 const AI_NAMES = ['Alice', 'Bob', 'Charlie', 'Diana', 'Edward'];
 
@@ -107,3 +126,12 @@ const DEFAULT_SETTINGS = {
     bigBlind: 20,
     gameMode: GameMode.STANDARD
 };
+
+if (typeof module !== 'undefined') {
+    module.exports = {
+        SUITS, SUIT_SYMBOLS, SUIT_COLORS, RANKS_STANDARD, RANKS_SHORT, RANK_VALUES,
+        GameMode, GamePhase, Action, HandRank, HandRankShortDeck,
+        HAND_RANK_NAMES, HAND_RANK_NAMES_SHORT, MessageType,
+        AI_NAMES, DEFAULT_SETTINGS
+    };
+}

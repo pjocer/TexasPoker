@@ -415,3 +415,7 @@ class AI {
         return { action: Action.RAISE, amount: clampedAmount };
     }
 }
+
+if (typeof module !== 'undefined') {
+    module.exports = { AI };
+}
