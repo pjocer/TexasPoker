@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1536">
+  
+    <defs>
+      <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#9D3D3D" />
+        <stop offset="100%" stop-color="#351316" />
+      </linearGradient>
+      <radialGradient id="halo" cx="50%" cy="20%" r="80%">
+        <stop offset="0%" stop-color="rgba(255,255,255,0.55)" />
+        <stop offset="100%" stop-color="rgba(255,255,255,0)" />
+      </radialGradient>
+    </defs>
+    
+  <rect width="1024" height="1536" rx="96" fill="url(#bg)"/>
+  <circle cx="512" cy="258" r="196" fill="#FFA684" opacity="0.16"/>
+  <path d="M314 1378c24-316 92-532 198-532s174 216 198 532" fill="#9D3D3D"/>
+  <path d="M412 730c-6-114 42-210 100-210s106 96 100 210" fill="#351316" opacity="0.82"/>
+  <circle cx="512" cy="430" r="140" fill="#F7E4D1"/>
+  <path d="M380 398c24-110 240-132 264 12c-38 30-92 54-150 54c-48 0-92-12-132-34c2-10 8-20 18-32Z" fill="#351316"/>
+  <path d="M352 948c58 86 108 122 160 122s102-36 160-122" fill="#FFB28B" opacity="0.24"/>
+  <rect x="128" y="1200" width="768" height="188" rx="48" fill="rgba(7,10,15,0.32)" stroke="rgba(255,255,255,0.18)"/>
+  <text x="512" y="1284" font-size="82" text-anchor="middle" fill="#FFB28B" font-family="Arial, sans-serif" font-weight="700">流火</text>
+  <text x="512" y="1360" font-size="34" text-anchor="middle" fill="rgba(255,255,255,0.78)" font-family="Arial, sans-serif">猩红斗牌手</text>
+  <circle cx="170" cy="188" r="72" fill="#FFB28B" opacity="0.12"/>
+  <circle cx="862" cy="300" r="86" fill="#FFB28B" opacity="0.14"/>
+  <text x="842" y="330" font-size="104" text-anchor="middle" fill="#FFA684" font-family="Arial, sans-serif" font-weight="700">6</text>
+</svg>

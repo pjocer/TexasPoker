@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 768 1024">
+  
+    <defs>
+      <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#311F33" />
+        <stop offset="100%" stop-color="#B43F5A" />
+      </linearGradient>
+      <radialGradient id="halo" cx="50%" cy="20%" r="80%">
+        <stop offset="0%" stop-color="rgba(255,255,255,0.55)" />
+        <stop offset="100%" stop-color="rgba(255,255,255,0)" />
+      </radialGradient>
+    </defs>
+    
+  <rect width="768" height="1024" rx="72" fill="url(#bg)"/>
+  <circle cx="384" cy="240" r="168" fill="#FF8E72" opacity="0.16"/>
+  <path d="M208 936c20-222 132-332 176-332s156 110 176 332" fill="#B43F5A"/>
+  <path d="M260 640c30-124 100-194 124-194s94 70 124 194" fill="#311F33" opacity="0.78"/>
+  <circle cx="384" cy="344" r="122" fill="#F7E4D1"/>
+  <path d="M274 324c26-88 212-114 238 0c-38 34-88 52-140 52c-36 0-72-10-106-30c0-10 2-16 8-22Z" fill="#311F33"/>
+  <path d="M296 668c24 36 56 58 88 58s64-22 88-58" fill="#F7C873" opacity="0.3"/>
+  <rect x="270" y="710" width="228" height="168" rx="34" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.2)"/>
+  <text x="384" y="784" font-size="44" text-anchor="middle" fill="#F7C873" font-family="Arial, sans-serif" font-weight="700">绯砂</text>
+  <text x="384" y="834" font-size="24" text-anchor="middle" fill="rgba(255,255,255,0.78)" font-family="Arial, sans-serif">赤焰荷官</text>
+  <circle cx="224" cy="214" r="54" fill="#F7C873" opacity="0.12"/>
+  <circle cx="544" cy="178" r="42" fill="#F7C873" opacity="0.12"/>
+  <text x="618" y="160" font-size="64" text-anchor="middle" fill="#FF8E72" font-family="Arial, sans-serif" font-weight="700">A</text>
+</svg>

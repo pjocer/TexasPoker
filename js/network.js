@@ -87,11 +87,12 @@ class Network {
         }
     }
 
-    createRoom(playerName, settings) {
+    createRoom(playerName, settings, authToken = null) {
         this._playerName = playerName;
         this._send({
             type: MessageType.CREATE_ROOM,
             playerName: playerName,
+            authToken: authToken,
             gameMode: settings.gameMode,
             playerCount: settings.playerCount,
             startingChips: settings.startingChips,
@@ -100,12 +101,13 @@ class Network {
         });
     }
 
-    joinRoom(roomId, playerName) {
+    joinRoom(roomId, playerName, authToken = null) {
         this._playerName = playerName;
         this._send({
             type: MessageType.JOIN_ROOM,
             roomId: roomId,
-            playerName: playerName
+            playerName: playerName,
+            authToken: authToken
         });
     }
 

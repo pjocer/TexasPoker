@@ -21,6 +21,9 @@ class Player {
         this.seatIndex = 0;
         this.isVacant = false;     // 真人离桌后留下的空座
         this.pendingLeave = false; // 当前手结束后真正清空座位
+        this.characterId = null;
+        this.avatarType = 'preset';
+        this.avatarData = null;
     }
 
     reset() {
@@ -73,6 +76,9 @@ class Player {
         this.handResult = null;
         this.isVacant = true;
         this.pendingLeave = false;
+        this.characterId = null;
+        this.avatarType = 'preset';
+        this.avatarData = null;
     }
 
     toJSON(showCards = false) {
@@ -92,7 +98,10 @@ class Player {
             lastAction: this.lastAction,
             handResult: this.handResult,
             seatIndex: this.seatIndex,
-            isVacant: this.isVacant
+            isVacant: this.isVacant,
+            characterId: this.characterId,
+            avatarType: this.avatarType,
+            avatarData: this.avatarData
         };
     }
 }

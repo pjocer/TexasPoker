@@ -17,10 +17,37 @@ class UI {
         this.game = null;
         this.network = null;
         this._currentOnlineActions = null;
+        this.characterManifest = { defaultCharacterId: null, characters: [] };
+        this.characterMap = new Map();
+        this.audio = typeof AudioManager !== 'undefined' ? new AudioManager() : null;
+        this._hasRenderedState = false;
 
         // 倒计时
         this.timerInterval = null;
         this.timerSeconds = 30;
+    }
+
+    setCharacterManifest(manifest) {
+        this.characterManifest = manifest || { defaultCharacterId: null, characters: [] };
+        this.characterMap = new Map(
+            (this.characterManifest.characters || []).map((character) => [character.id, character])
+        );
+    }
+
+    _getCharacter(characterId) {
+        if (characterId && this.characterMap.has(characterId)) {
+            return this.characterMap.get(characterId);
+        }
+        if (this.characterManifest.defaultCharacterId && this.characterMap.has(this.characterManifest.defaultCharacterId)) {
+            return this.characterMap.get(this.characterManifest.defaultCharacterId);
+        }
+        return (this.characterManifest.characters || [])[0] || null;
+    }
+
+    _getCharacterAsset(characterId, key) {
+        const character = this._getCharacter(characterId);
+        if (!character || !character[key]) return '';
+        return character[key].startsWith('/') ? character[key] : `/${character[key]}`;
     }
 
     /**
@@ -60,6 +87,7 @@ class UI {
             seat.className = 'player-seat';
             seat.dataset.seat = index;
             seat.innerHTML = `
+                <div class="player-portrait"></div>
                 <div class="player-info">
                     <div class="player-name">${player.name}</div>
                     <div class="player-chips">${player.chips}</div>
@@ -77,11 +105,13 @@ class UI {
      * 更新整个游戏状态
      */
     updateState(state) {
+        const shouldPlaySounds = this._hasRenderedState;
         this._lastState = state;
         this.updatePot(state.pot);
         this.updateCommunityCards(state.communityCards);
-        this.updatePlayers(state);
+        this.updatePlayers(state, shouldPlaySounds);
         this.updateInfoPanel(state);
+        this._hasRenderedState = true;
 
         // 单机模式: 操作面板由本地 game 控制
         if (!this.network) {
@@ -117,7 +147,7 @@ class UI {
         }
     }
 
-    updatePlayers(state) {
+    updatePlayers(state, shouldPlaySounds = false) {
         const isOnline = !!this.network;
         const myPlayerId = state.myPlayerId;
 
@@ -137,6 +167,7 @@ class UI {
             const actionEl = seat.querySelector('.player-action');
             const cardsEl = seat.querySelector('.player-cards');
             const betChipEl = seat.querySelector('.player-bet-chip');
+            const portraitEl = seat.querySelector('.player-portrait');
 
             if (player.isVacant) {
                 nameEl.textContent = '空座';
@@ -146,6 +177,8 @@ class UI {
                 cardsEl.dataset.cardKey = 'vacant';
                 cardsEl.innerHTML = '';
                 betChipEl.style.display = 'none';
+                portraitEl.style.backgroundImage = '';
+                portraitEl.classList.remove('has-image');
                 const resultEl = seat.querySelector('.player-hand-result');
                 if (resultEl) resultEl.style.display = 'none';
                 return;
@@ -153,6 +186,9 @@ class UI {
 
             nameEl.textContent = player.name;
             chipsEl.textContent = `${player.chips}`;
+            const portraitUrl = this._getCharacterAsset(player.characterId, 'tableBust');
+            portraitEl.style.backgroundImage = portraitUrl ? `url(${portraitUrl})` : '';
+            portraitEl.classList.toggle('has-image', !!portraitUrl);
 
             // 上一个动作
             if (player.lastAction) {
@@ -163,6 +199,9 @@ class UI {
                 // 动作变化时弹出气泡
                 if (player.lastAction !== prevAction) {
                     actionEl.dataset.lastAction = player.lastAction;
+                    if (shouldPlaySounds) {
+                        this._playActionSound(player.lastAction);
+                    }
                     // 移除旧气泡
                     const oldBubble = seat.querySelector('.action-bubble');
                     if (oldBubble) oldBubble.remove();
@@ -484,6 +523,10 @@ class UI {
     }
 
     showWinnerOverlay(winner) {
+        if (this.audio) {
+            this.audio.play('win');
+        }
+
         const overlay = document.createElement('div');
         overlay.className = 'winner-overlay';
         overlay.innerHTML = `
@@ -516,5 +559,30 @@ class UI {
         document.getElementById('game-screen').style.display = 'block';
         const badge = document.getElementById('user-badge');
         if (badge) badge.style.display = 'none';
+        this._hasRenderedState = false;
+    }
+
+    _playActionSound(actionText) {
+        if (!this.audio || !actionText) return;
+
+        if (actionText.includes('全下')) {
+            this.audio.play('all_in');
+            return;
+        }
+        if (actionText.includes('加注') || actionText.includes('大盲') || actionText.includes('小盲')) {
+            this.audio.play('raise');
+            return;
+        }
+        if (actionText.includes('跟注')) {
+            this.audio.play('call');
+            return;
+        }
+        if (actionText.includes('过牌')) {
+            this.audio.play('check');
+            return;
+        }
+        if (actionText.includes('弃牌') || actionText.includes('离桌')) {
+            this.audio.play('fold');
+        }
     }
 }

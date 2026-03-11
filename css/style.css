@@ -185,49 +185,6 @@ body {
     margin-bottom: 12px;
 }
 
-.profile-avatar-list {
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-    flex-wrap: wrap;
-}
-
-.profile-avatar-option {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: #3a3a4e;
-    cursor: pointer;
-    border: 2px solid rgba(255, 255, 255, 0.1);
-    transition: border-color 0.2s, transform 0.15s;
-    background-size: cover;
-    background-position: center;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.profile-avatar-option:hover {
-    border-color: rgba(226, 176, 74, 0.5);
-    transform: scale(1.1);
-}
-
-.profile-avatar-option.selected {
-    border-color: #e2b04a;
-    box-shadow: 0 0 12px rgba(226, 176, 74, 0.4);
-}
-
-.profile-avatar-option.default-avatar::after {
-    content: '';
-    display: block;
-    width: 22px;
-    height: 22px;
-    background: rgba(255, 255, 255, 0.25);
-    border-radius: 50% 50% 0 0;
-    margin-top: 12px;
-}
-
 .profile-divider {
     height: 1px;
     background: rgba(255, 255, 255, 0.08);
@@ -257,6 +214,120 @@ body {
     background: rgba(255, 255, 255, 0.14);
     border-color: rgba(226, 176, 74, 0.4);
     color: #e2b04a;
+}
+
+.profile-upload-btn.secondary {
+    margin-left: 8px;
+}
+
+.profile-character-summary {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    padding: 16px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 20px;
+}
+
+.profile-character-full {
+    width: 120px;
+    height: 170px;
+    border-radius: 14px;
+    background:
+        radial-gradient(circle at top, rgba(226, 176, 74, 0.25), transparent 60%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center bottom;
+    flex: 0 0 auto;
+}
+
+.profile-character-full.has-image {
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.profile-character-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.profile-character-name {
+    font-size: 20px;
+    font-weight: bold;
+    color: #f2f4f8;
+}
+
+.profile-character-title {
+    font-size: 13px;
+    color: #d5b878;
+}
+
+.profile-character-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.profile-character-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    color: inherit;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.15s, background 0.2s;
+}
+
+.profile-character-option:hover {
+    border-color: rgba(226, 176, 74, 0.42);
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.profile-character-option.selected {
+    border-color: #e2b04a;
+    box-shadow: 0 0 16px rgba(226, 176, 74, 0.22);
+    background: rgba(226, 176, 74, 0.08);
+}
+
+.profile-character-thumb {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.08);
+    background-size: cover;
+    background-position: center;
+    border: 2px solid rgba(255, 255, 255, 0.08);
+    flex: 0 0 auto;
+}
+
+.profile-character-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    text-align: left;
+}
+
+.profile-character-option-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #f2f4f8;
+}
+
+.profile-character-option-title {
+    font-size: 12px;
+    color: #9ca7ba;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* ==================== 头像裁剪弹窗 ==================== */
@@ -353,6 +424,13 @@ body {
     padding: 20px 0;
 }
 
+.setup-layout {
+    display: flex;
+    gap: 28px;
+    align-items: center;
+    margin: auto 0;
+}
+
 .setup-container {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -362,6 +440,89 @@ body {
     margin: auto 0;
     flex-shrink: 0;
     backdrop-filter: blur(10px);
+}
+
+.setup-character-panel {
+    width: 320px;
+    min-height: 690px;
+    padding: 28px 28px 24px;
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at top, rgba(226, 176, 74, 0.16), transparent 38%),
+        rgba(10, 12, 22, 0.62);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.setup-character-label {
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #8f98ad;
+}
+
+.setup-fullbody-display {
+    flex: 1;
+    min-height: 420px;
+    margin: 16px 0 18px;
+    border-radius: 20px;
+    background:
+        radial-gradient(circle at 50% 10%, rgba(226, 176, 74, 0.18), transparent 42%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center bottom;
+}
+
+.setup-fullbody-display.has-image {
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.setup-character-copy {
+    text-align: center;
+}
+
+.setup-character-name {
+    font-size: 26px;
+    font-weight: bold;
+    color: #f7f8fb;
+}
+
+.setup-character-title {
+    margin-top: 4px;
+    color: #d9bb78;
+    font-size: 14px;
+}
+
+.setup-avatar-row {
+    margin-top: 18px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.setup-avatar-preview {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    background-size: cover;
+    background-position: center;
+    border: 2px solid rgba(255, 255, 255, 0.12);
+    flex: 0 0 auto;
+}
+
+.setup-avatar-mode {
+    font-size: 13px;
+    line-height: 1.6;
+    color: #ced4df;
 }
 
 .setup-container h1 {
@@ -862,6 +1023,25 @@ body {
     text-align: center;
     z-index: 20;
     transition: opacity 0.3s;
+}
+
+.player-portrait {
+    width: 108px;
+    height: 92px;
+    margin: 0 auto -16px;
+    border-radius: 18px 18px 12px 12px;
+    background:
+        radial-gradient(circle at 50% 0%, rgba(226, 176, 74, 0.18), transparent 60%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.01));
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center bottom;
+    opacity: 0.92;
+    pointer-events: none;
+}
+
+.player-portrait.has-image {
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 .player-seat.busted {
@@ -1393,6 +1573,7 @@ body {
     .card.small .card-rank-top { font-size: 10px; }
 
     .player-seat { width: 120px; }
+    .player-portrait { width: 90px; height: 76px; margin-bottom: -12px; }
     .player-name { font-size: 11px; }
     .player-chips { font-size: 11px; }
 
@@ -1400,6 +1581,46 @@ body {
 }
 
 @media (max-width: 750px) {
+    #auth-screen,
+    #profile-screen,
+    #setup-screen {
+        padding: 16px 0;
+    }
+
+    .setup-layout {
+        flex-direction: column;
+        gap: 18px;
+        width: min(94vw, 520px);
+    }
+
+    .setup-container,
+    .setup-character-panel {
+        width: 100%;
+        min-height: 0;
+    }
+
+    .setup-container {
+        padding: 28px 22px;
+    }
+
+    .setup-character-panel {
+        padding: 20px;
+    }
+
+    .setup-fullbody-display {
+        min-height: 260px;
+        margin: 12px 0 14px;
+    }
+
+    .profile-character-summary {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .profile-character-list {
+        grid-template-columns: 1fr;
+    }
+
     .table-area {
         width: 500px;
         height: 260px;
@@ -1418,6 +1639,7 @@ body {
     .card.small .card-suit-center { font-size: 14px; }
 
     .player-seat { width: 100px; }
+    .player-portrait { width: 72px; height: 62px; margin-bottom: -10px; }
     .player-info { padding: 5px 7px; }
 
     .action-panel { padding: 8px 12px; gap: 6px; }

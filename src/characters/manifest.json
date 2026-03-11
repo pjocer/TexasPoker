@@ -1,0 +1,259 @@
+{
+  "version": 1,
+  "defaultCharacterId": "char_001",
+  "aiCharacterIds": [
+    "char_002",
+    "char_003",
+    "char_004",
+    "char_005",
+    "char_006",
+    "char_007",
+    "char_008",
+    "char_009",
+    "char_010",
+    "char_011",
+    "char_012"
+  ],
+  "characters": [
+    {
+      "id": "char_001",
+      "name": "绯砂",
+      "title": "赤焰荷官",
+      "accent": "A",
+      "tags": [
+        "built-in",
+        "preset"
+      ],
+      "avatarThumb": "src/characters/char_001/avatar/thumb.svg",
+      "avatarProfile": "src/characters/char_001/avatar/profile.svg",
+      "tableBust": "src/characters/char_001/table/bust.svg",
+      "fullBody": "src/characters/char_001/full/full.svg",
+      "palette": {
+        "primary": "#B43F5A",
+        "secondary": "#F7C873",
+        "dark": "#311F33",
+        "aura": "#FF8E72"
+      }
+    },
+    {
+      "id": "char_002",
+      "name": "岚川",
+      "title": "冷锋猎手",
+      "accent": "K",
+      "tags": [
+        "built-in",
+        "preset"
+      ],
+      "avatarThumb": "src/characters/char_002/avatar/thumb.svg",
+      "avatarProfile": "src/characters/char_002/avatar/profile.svg",
+      "tableBust": "src/characters/char_002/table/bust.svg",
+      "fullBody": "src/characters/char_002/full/full.svg",
+      "palette": {
+        "primary": "#3A6EA5",
+        "secondary": "#9FD8CB",
+        "dark": "#152238",
+        "aura": "#7FD1FF"
+      }
+    },
+    {
+      "id": "char_003",
+      "name": "秋璃",
+      "title": "琥珀术士",
+      "accent": "Q",
+      "tags": [
+        "built-in",
+        "preset"
+      ],
+      "avatarThumb": "src/characters/char_003/avatar/thumb.svg",
+      "avatarProfile": "src/characters/char_003/avatar/profile.svg",
+      "tableBust": "src/characters/char_003/table/bust.svg",
+      "fullBody": "src/characters/char_003/full/full.svg",
+      "palette": {
+        "primary": "#7A4E2D",
+        "secondary": "#E7A95A",
+        "dark": "#2E1A12",
+        "aura": "#FFD38A"
+      }
+    },
+    {
+      "id": "char_004",
+      "name": "雾音",
+      "title": "夜色潜行者",
+      "accent": "J",
+      "tags": [
+        "built-in",
+        "preset"
+      ],
+      "avatarThumb": "src/characters/char_004/avatar/thumb.svg",
+      "avatarProfile": "src/characters/char_004/avatar/profile.svg",
+      "tableBust": "src/characters/char_004/table/bust.svg",
+      "fullBody": "src/characters/char_004/full/full.svg",
+      "palette": {
+        "primary": "#574B90",
+        "secondary": "#B8A1FF",
+        "dark": "#1B1633",
+        "aura": "#C7B6FF"
+      }
+    },
+    {
+      "id": "char_005",
+      "name": "青炬",
+      "title": "翡翠赌徒",
+      "accent": "10",
+      "tags": [
+        "built-in",
+        "preset"
+      ],
+      "avatarThumb": "src/characters/char_005/avatar/thumb.svg",
+      "avatarProfile": "src/characters/char_005/avatar/profile.svg",
+      "tableBust": "src/characters/char_005/table/bust.svg",
+      "fullBody": "src/characters/char_005/full/full.svg",
+      "palette": {
+        "primary": "#2F7F68",
+        "secondary": "#BFE3C0",
+        "dark": "#16332D",
+        "aura": "#7CF1CA"
+      }
+    },
+    {
+      "id": "char_006",
+      "name": "曜尘",
+      "title": "金脉执旗手",
+      "accent": "9",
+      "tags": [
+        "built-in",
+        "preset"
+      ],
+      "avatarThumb": "src/characters/char_006/avatar/thumb.svg",
+      "avatarProfile": "src/characters/char_006/avatar/profile.svg",
+      "tableBust": "src/characters/char_006/table/bust.svg",
+      "fullBody": "src/characters/char_006/full/full.svg",
+      "palette": {
+        "primary": "#9A6B2E",
+        "secondary": "#FFD68A",
+        "dark": "#36230B",
+        "aura": "#FFE8AA"
+      }
+    },
+    {
+      "id": "char_007",
+      "name": "霜雀",
+      "title": "银月观测者",
+      "accent": "8",
+      "tags": [
+        "built-in",
+        "preset"
+      ],
+      "avatarThumb": "src/characters/char_007/avatar/thumb.svg",
+      "avatarProfile": "src/characters/char_007/avatar/profile.svg",
+      "tableBust": "src/characters/char_007/table/bust.svg",
+      "fullBody": "src/characters/char_007/full/full.svg",
+      "palette": {
+        "primary": "#7D8EA3",
+        "secondary": "#E3ECF8",
+        "dark": "#243040",
+        "aura": "#D8EDFF"
+      }
+    },
+    {
+      "id": "char_008",
+      "name": "墨岚",
+      "title": "暮海策士",
+      "accent": "7",
+      "tags": [
+        "built-in",
+        "preset"
+      ],
+      "avatarThumb": "src/characters/char_008/avatar/thumb.svg",
+      "avatarProfile": "src/characters/char_008/avatar/profile.svg",
+      "tableBust": "src/characters/char_008/table/bust.svg",
+      "fullBody": "src/characters/char_008/full/full.svg",
+      "palette": {
+        "primary": "#345D7E",
+        "secondary": "#8EB8D8",
+        "dark": "#152638",
+        "aura": "#A7D5FF"
+      }
+    },
+    {
+      "id": "char_009",
+      "name": "流火",
+      "title": "猩红斗牌手",
+      "accent": "6",
+      "tags": [
+        "built-in",
+        "preset"
+      ],
+      "avatarThumb": "src/characters/char_009/avatar/thumb.svg",
+      "avatarProfile": "src/characters/char_009/avatar/profile.svg",
+      "tableBust": "src/characters/char_009/table/bust.svg",
+      "fullBody": "src/characters/char_009/full/full.svg",
+      "palette": {
+        "primary": "#9D3D3D",
+        "secondary": "#FFB28B",
+        "dark": "#351316",
+        "aura": "#FFA684"
+      }
+    },
+    {
+      "id": "char_010",
+      "name": "铃曜",
+      "title": "晨星歌者",
+      "accent": "5",
+      "tags": [
+        "built-in",
+        "preset"
+      ],
+      "avatarThumb": "src/characters/char_010/avatar/thumb.svg",
+      "avatarProfile": "src/characters/char_010/avatar/profile.svg",
+      "tableBust": "src/characters/char_010/table/bust.svg",
+      "fullBody": "src/characters/char_010/full/full.svg",
+      "palette": {
+        "primary": "#6F4DA7",
+        "secondary": "#F3B8FF",
+        "dark": "#241237",
+        "aura": "#F7C8FF"
+      }
+    },
+    {
+      "id": "char_011",
+      "name": "沉舟",
+      "title": "深海掌局人",
+      "accent": "4",
+      "tags": [
+        "built-in",
+        "preset"
+      ],
+      "avatarThumb": "src/characters/char_011/avatar/thumb.svg",
+      "avatarProfile": "src/characters/char_011/avatar/profile.svg",
+      "tableBust": "src/characters/char_011/table/bust.svg",
+      "fullBody": "src/characters/char_011/full/full.svg",
+      "palette": {
+        "primary": "#25506B",
+        "secondary": "#7AC0E5",
+        "dark": "#101E2A",
+        "aura": "#90DBFF"
+      }
+    },
+    {
+      "id": "char_012",
+      "name": "焰罗",
+      "title": "暮金戏法师",
+      "accent": "3",
+      "tags": [
+        "built-in",
+        "preset"
+      ],
+      "avatarThumb": "src/characters/char_012/avatar/thumb.svg",
+      "avatarProfile": "src/characters/char_012/avatar/profile.svg",
+      "tableBust": "src/characters/char_012/table/bust.svg",
+      "fullBody": "src/characters/char_012/full/full.svg",
+      "palette": {
+        "primary": "#8D5333",
+        "secondary": "#F6C08A",
+        "dark": "#29130D",
+        "aura": "#FFD7A6"
+      }
+    }
+  ]
+}

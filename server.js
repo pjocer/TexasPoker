@@ -30,6 +30,59 @@ Object.assign(global, { Game });
 
 const { MessageType, GameMode, GamePhase, Action, AI_NAMES, DEFAULT_SETTINGS } = constants;
 
+const CHARACTER_MANIFEST_PATH = path.join(__dirname, 'src', 'characters', 'manifest.json');
+
+function loadCharacterManifest() {
+    try {
+        const manifest = JSON.parse(fs.readFileSync(CHARACTER_MANIFEST_PATH, 'utf8'));
+        if (!Array.isArray(manifest.characters) || manifest.characters.length === 0) {
+            throw new Error('Character manifest is empty');
+        }
+        return manifest;
+    } catch (error) {
+        console.error('Failed to load character manifest:', error);
+        return {
+            version: 1,
+            defaultCharacterId: null,
+            aiCharacterIds: [],
+            characters: []
+        };
+    }
+}
+
+const characterManifest = loadCharacterManifest();
+const characterMap = new Map(
+    (characterManifest.characters || []).map((character) => [character.id, character])
+);
+
+function normalizeCharacterId(characterId) {
+    if (characterId && characterMap.has(characterId)) {
+        return characterId;
+    }
+
+    if (characterManifest.defaultCharacterId && characterMap.has(characterManifest.defaultCharacterId)) {
+        return characterManifest.defaultCharacterId;
+    }
+
+    const firstCharacter = characterManifest.characters && characterManifest.characters[0];
+    return firstCharacter ? firstCharacter.id : null;
+}
+
+function getAICharacterId(index) {
+    const pool = (characterManifest.aiCharacterIds || []).filter((characterId) => characterMap.has(characterId));
+    if (pool.length > 0) {
+        return pool[index % pool.length];
+    }
+    return normalizeCharacterId(null);
+}
+
+function getAvatarType(user) {
+    if (user.avatar_type === 'custom' || user.avatar_type === 'preset') {
+        return user.avatar_type;
+    }
+    return user.avatar === 'custom' ? 'custom' : 'preset';
+}
+
 // ==================== 用户数据库 ====================
 
 const DB_DIR = path.join(os.homedir(), '.funplus', 'texas_poker');
@@ -66,6 +119,14 @@ function ensureUserSchema() {
         {
             name: 'avatar_data',
             sql: `ALTER TABLE users ADD COLUMN avatar_data TEXT`
+        },
+        {
+            name: 'avatar_type',
+            sql: `ALTER TABLE users ADD COLUMN avatar_type TEXT DEFAULT 'preset'`
+        },
+        {
+            name: 'character_id',
+            sql: `ALTER TABLE users ADD COLUMN character_id TEXT`
         }
     ];
 
@@ -73,6 +134,21 @@ function ensureUserSchema() {
         if (columns.has(name)) return;
         db.exec(sql);
     });
+
+    db.prepare(
+        `UPDATE users
+         SET avatar_type = CASE WHEN avatar = 'custom' THEN 'custom' ELSE 'preset' END
+         WHERE avatar_type IS NULL OR avatar_type = ''`
+    ).run();
+
+    const defaultCharacterId = normalizeCharacterId(null);
+    if (defaultCharacterId) {
+        db.prepare(
+            `UPDATE users
+             SET character_id = ?
+             WHERE character_id IS NULL OR character_id = ''`
+        ).run(defaultCharacterId);
+    }
 }
 
 ensureUserSchema();
@@ -94,18 +170,33 @@ function getSessionUser(req) {
 }
 
 function serializeUserProfile(user) {
+    const avatarType = getAvatarType(user);
     return {
         nickname: user.nickname || user.username,
-        avatar: user.avatar || 'default',
-        avatarData: user.avatar === 'custom' ? (user.avatar_data || null) : null
+        characterId: normalizeCharacterId(user.character_id),
+        avatarType,
+        avatarData: avatarType === 'custom' ? (user.avatar_data || null) : null
     };
 }
 
 function getUserProfile(username) {
     const user = db
-        .prepare('SELECT username, nickname, avatar, avatar_data FROM users WHERE username = ?')
+        .prepare('SELECT username, nickname, avatar, avatar_type, avatar_data, character_id FROM users WHERE username = ?')
         .get(username);
     return user ? serializeUserProfile(user) : null;
+}
+
+function getProfileFromAuthToken(token) {
+    const username = token ? sessions.get(token) : null;
+    if (!username) return null;
+    const user = db
+        .prepare('SELECT username, nickname, avatar, avatar_type, avatar_data, character_id FROM users WHERE username = ?')
+        .get(username);
+    if (!user) return null;
+    return {
+        username: user.username,
+        profile: serializeUserProfile(user)
+    };
 }
 
 // ==================== Express + HTTP ====================
@@ -140,7 +231,10 @@ app.post('/api/register', (req, res) => {
     const salt = crypto.randomBytes(16).toString('hex');
     const hash = hashPassword(password, salt);
 
-    db.prepare('INSERT INTO users (username, password_hash, salt, nickname) VALUES (?, ?, ?, ?)').run(username, hash, salt, username);
+    db.prepare(
+        `INSERT INTO users (username, password_hash, salt, nickname, avatar, avatar_type, character_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).run(username, hash, salt, username, 'default', 'preset', normalizeCharacterId(null));
     res.json({ success: true, username });
 });
 
@@ -179,7 +273,7 @@ app.post('/api/profile/update', (req, res) => {
         const username = getSessionUser(req);
         if (!username) return res.json({ success: false, message: '未登录' });
 
-        const { nickname, avatar } = req.body;
+        const { nickname, characterId, avatarType } = req.body;
 
         if (nickname !== undefined) {
             const trimmed = (nickname || '').trim();
@@ -189,19 +283,39 @@ app.post('/api/profile/update', (req, res) => {
             db.prepare('UPDATE users SET nickname = ? WHERE username = ?').run(trimmed, username);
         }
 
-        if (avatar !== undefined) {
-            const normalizedAvatar = typeof avatar === 'string' ? avatar.trim() : '';
-            if (!normalizedAvatar) {
-                return res.json({ success: false, message: '头像参数无效' });
+        if (characterId !== undefined) {
+            const normalizedCharacterId = normalizeCharacterId(characterId);
+            if (!normalizedCharacterId || normalizedCharacterId !== characterId) {
+                return res.json({ success: false, message: '角色参数无效' });
             }
-
-            const shouldClearCustomAvatar = normalizedAvatar !== 'custom';
             db.prepare(
                 `UPDATE users
-                 SET avatar = ?,
-                     avatar_data = CASE WHEN ? THEN NULL ELSE avatar_data END
+                 SET character_id = ?
                  WHERE username = ?`
-            ).run(normalizedAvatar, shouldClearCustomAvatar ? 1 : 0, username);
+            ).run(normalizedCharacterId, username);
+        }
+
+        if (avatarType !== undefined) {
+            if (avatarType !== 'preset' && avatarType !== 'custom') {
+                return res.json({ success: false, message: '头像类型无效' });
+            }
+
+            if (avatarType === 'preset') {
+                db.prepare(
+                    `UPDATE users
+                     SET avatar = 'default',
+                         avatar_type = 'preset',
+                         avatar_data = NULL
+                     WHERE username = ?`
+                ).run(username);
+            } else {
+                db.prepare(
+                    `UPDATE users
+                     SET avatar = 'custom',
+                         avatar_type = 'custom'
+                     WHERE username = ?`
+                ).run(username);
+            }
         }
 
         const profile = getUserProfile(username);
@@ -227,8 +341,14 @@ app.post('/api/profile/avatar-upload', (req, res) => {
             return res.json({ success: false, message: '图片过大，请裁剪后上传' });
         }
 
-        db.prepare('UPDATE users SET avatar = ?, avatar_data = ? WHERE username = ?').run('custom', imageData, username);
-        res.json({ success: true, avatar: 'custom', avatarData: imageData });
+        db.prepare(
+            `UPDATE users
+             SET avatar = 'custom',
+                 avatar_type = 'custom',
+                 avatar_data = ?
+             WHERE username = ?`
+        ).run(imageData, username);
+        res.json({ success: true, avatarType: 'custom', avatarData: imageData });
     } catch (error) {
         console.error('Avatar upload failed:', error);
         res.status(500).json({ success: false, message: '头像上传接口异常' });
@@ -374,7 +494,8 @@ function send(ws, msg) {
 function getRoomPlayerList(room) {
     return room.players.map((player) => ({
         playerId: player.playerId,
-        playerName: player.playerName
+        playerName: player.playerName,
+        characterId: normalizeCharacterId(player.characterId)
     }));
 }
 
@@ -508,9 +629,12 @@ function handleMessage(ws, msg) {
 }
 
 function handleCreateRoom(ws, msg) {
-    const playerName = (msg.playerName || '').trim() || '玩家';
+    const sessionProfile = getProfileFromAuthToken(msg.authToken);
+    const fallbackName = sessionProfile ? sessionProfile.profile.nickname : '玩家';
+    const playerName = (msg.playerName || '').trim() || fallbackName;
     const info = wsPlayerMap.get(ws);
     info.playerName = playerName;
+    info.username = sessionProfile ? sessionProfile.username : null;
 
     const roomId = generateRoomId();
     const settings = {
@@ -531,6 +655,8 @@ function handleCreateRoom(ws, msg) {
         players: [{
             playerId: info.playerId,
             playerName: playerName,
+            characterId: sessionProfile ? sessionProfile.profile.characterId : normalizeCharacterId(null),
+            avatarType: sessionProfile ? sessionProfile.profile.avatarType : 'preset',
             ws: ws
         }],
         settings: settings,
@@ -548,9 +674,12 @@ function handleCreateRoom(ws, msg) {
 
 function handleJoinRoom(ws, msg) {
     const roomId = (msg.roomId || '').trim();
-    const playerName = (msg.playerName || '').trim() || '玩家';
+    const sessionProfile = getProfileFromAuthToken(msg.authToken);
+    const fallbackName = sessionProfile ? sessionProfile.profile.nickname : '玩家';
+    const playerName = (msg.playerName || '').trim() || fallbackName;
     const info = wsPlayerMap.get(ws);
     info.playerName = playerName;
+    info.username = sessionProfile ? sessionProfile.username : null;
 
     const room = rooms.get(roomId);
     if (!room) {
@@ -569,6 +698,8 @@ function handleJoinRoom(ws, msg) {
     room.players.push({
         playerId: info.playerId,
         playerName: playerName,
+        characterId: sessionProfile ? sessionProfile.profile.characterId : normalizeCharacterId(null),
+        avatarType: sessionProfile ? sessionProfile.profile.avatarType : 'preset',
         ws: ws
     });
     info.roomId = roomId;
@@ -650,6 +781,8 @@ function startRoomGame(room) {
         const player = new Player(i, p.playerName, room.settings.startingChips, true);
         player.playerId = p.playerId;
         player.seatIndex = i;
+        player.characterId = normalizeCharacterId(p.characterId);
+        player.avatarType = p.avatarType || 'preset';
         game.players.push(player);
     });
 
@@ -658,6 +791,8 @@ function startRoomGame(room) {
     for (let i = aiStartIndex; i < room.settings.playerCount; i++) {
         const aiPlayer = new Player(i, AI_NAMES[i - aiStartIndex] || `AI-${i}`, room.settings.startingChips, false);
         aiPlayer.seatIndex = i;
+        aiPlayer.characterId = getAICharacterId(i - aiStartIndex);
+        aiPlayer.avatarType = 'preset';
         game.players.push(aiPlayer);
     }
 
@@ -785,6 +920,7 @@ function broadcastGameState(room) {
                     chips: p.chips,
                     isHuman: p.isHuman,
                     playerId: p.playerId,
+                    characterId: normalizeCharacterId(p.characterId),
                     holeCards: (isMe || show) ? p.holeCards.map(c => c.toJSON ? c.toJSON() : c) : p.holeCards.map(() => null),
                     currentBet: p.currentBet,
                     totalBet: p.totalBet,

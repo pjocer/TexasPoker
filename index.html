@@ -67,11 +67,22 @@
 
             <div class="profile-avatar-section">
                 <div id="profile-avatar-preview" class="profile-avatar-preview"></div>
-                <p class="profile-avatar-hint">选择头像</p>
-                <div id="profile-avatar-list" class="profile-avatar-list"></div>
+                <p id="profile-avatar-hint" class="profile-avatar-hint">当前使用角色默认头像</p>
                 <button class="profile-upload-btn" id="profile-upload-btn">上传本地图片</button>
+                <button class="profile-upload-btn secondary" id="profile-use-preset-btn">使用角色头像</button>
                 <input type="file" id="avatar-file-input" accept="image/*" style="display:none;">
             </div>
+
+            <div class="profile-character-summary">
+                <div id="profile-character-full" class="profile-character-full"></div>
+                <div class="profile-character-meta">
+                    <p id="profile-character-name" class="profile-character-name"></p>
+                    <p id="profile-character-title" class="profile-character-title"></p>
+                </div>
+            </div>
+
+            <p class="profile-section-title">选择角色形象</p>
+            <div id="profile-character-list" class="profile-character-list"></div>
 
             <div class="form-group">
                 <label>昵称</label>
@@ -104,84 +115,99 @@
 
     <!-- 启动界面 -->
     <div id="setup-screen" style="display:none;">
-        <div class="setup-container">
-            <h1>TEXAS POKER</h1>
-            <p class="subtitle">德州扑克</p>
+        <div class="setup-layout">
+            <div class="setup-container">
+                <h1>TEXAS POKER</h1>
+                <p class="subtitle">德州扑克</p>
 
-            <!-- 模式选择: 单机 / 联网 -->
-            <div class="form-group">
-                <label>游戏类型</label>
-                <div class="mode-selector">
-                    <div class="play-mode-btn active" data-play-mode="local">
-                        <div class="mode-title">单机模式</div>
-                        <div class="mode-desc">与AI对战</div>
-                    </div>
-                    <div class="play-mode-btn" data-play-mode="online">
-                        <div class="mode-title">联网模式</div>
-                        <div class="mode-desc">多人对战</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 单机模式设置 (联网模式下也用于创建房间) -->
-            <div id="local-settings">
+                <!-- 模式选择: 单机 / 联网 -->
                 <div class="form-group">
-                    <label>游戏模式</label>
+                    <label>游戏类型</label>
                     <div class="mode-selector">
-                        <div class="mode-btn active" data-mode="standard">
-                            <div class="mode-title">标准德州</div>
-                            <div class="mode-desc">52张牌 (2-A)</div>
+                        <div class="play-mode-btn active" data-play-mode="local">
+                            <div class="mode-title">单机模式</div>
+                            <div class="mode-desc">与AI对战</div>
                         </div>
-                        <div class="mode-btn" data-mode="shortDeck">
-                            <div class="mode-title">短牌德州</div>
-                            <div class="mode-desc">36张牌 (6-A)</div>
+                        <div class="play-mode-btn" data-play-mode="online">
+                            <div class="mode-title">联网模式</div>
+                            <div class="mode-desc">多人对战</div>
                         </div>
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label>玩家人数 (含你自己)</label>
-                    <select id="player-count">
-                        <option value="2">2 人</option>
-                        <option value="3">3 人</option>
-                        <option value="4">4 人</option>
-                        <option value="5">5 人</option>
-                        <option value="6" selected>6 人</option>
-                    </select>
+                <!-- 单机模式设置 (联网模式下也用于创建房间) -->
+                <div id="local-settings">
+                    <div class="form-group">
+                        <label>游戏模式</label>
+                        <div class="mode-selector">
+                            <div class="mode-btn active" data-mode="standard">
+                                <div class="mode-title">标准德州</div>
+                                <div class="mode-desc">52张牌 (2-A)</div>
+                            </div>
+                            <div class="mode-btn" data-mode="shortDeck">
+                                <div class="mode-title">短牌德州</div>
+                                <div class="mode-desc">36张牌 (6-A)</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>玩家人数 (含你自己)</label>
+                        <select id="player-count">
+                            <option value="2">2 人</option>
+                            <option value="3">3 人</option>
+                            <option value="4">4 人</option>
+                            <option value="5">5 人</option>
+                            <option value="6" selected>6 人</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>起始筹码</label>
+                        <input type="number" id="starting-chips" value="1000" min="100" step="100">
+                    </div>
+
+                    <div class="form-group">
+                        <label>小盲注</label>
+                        <input type="number" id="small-blind" value="10" min="1">
+                    </div>
+
+                    <div class="form-group">
+                        <label>大盲注</label>
+                        <input type="number" id="big-blind" value="20" min="2">
+                    </div>
                 </div>
 
-                <div class="form-group">
-                    <label>起始筹码</label>
-                    <input type="number" id="starting-chips" value="1000" min="100" step="100">
+                <!-- 联网模式: 玩家名 -->
+                <div id="online-name-group" class="form-group" style="display:none;">
+                    <label>你的名字</label>
+                    <input type="text" id="player-name" placeholder="输入名字" maxlength="10" value="">
                 </div>
 
-                <div class="form-group">
-                    <label>小盲注</label>
-                    <input type="number" id="small-blind" value="10" min="1">
-                </div>
+                <button class="start-btn" id="start-btn">开始游戏</button>
 
-                <div class="form-group">
-                    <label>大盲注</label>
-                    <input type="number" id="big-blind" value="20" min="2">
+                <!-- 联网模式按钮 -->
+                <div id="online-buttons" style="display:none;">
+                    <button class="start-btn" id="create-room-btn">创建房间</button>
+                    <div class="room-join-row">
+                        <input type="text" id="room-id-input" placeholder="输入房间号" maxlength="4" class="room-input">
+                        <button class="start-btn join-btn" id="join-room-btn">加入房间</button>
+                    </div>
                 </div>
             </div>
 
-            <!-- 联网模式: 玩家名 -->
-            <div id="online-name-group" class="form-group" style="display:none;">
-                <label>你的名字</label>
-                <input type="text" id="player-name" placeholder="输入名字" maxlength="10" value="">
-            </div>
-
-            <button class="start-btn" id="start-btn">开始游戏</button>
-
-            <!-- 联网模式按钮 -->
-            <div id="online-buttons" style="display:none;">
-                <button class="start-btn" id="create-room-btn">创建房间</button>
-                <div class="room-join-row">
-                    <input type="text" id="room-id-input" placeholder="输入房间号" maxlength="4" class="room-input">
-                    <button class="start-btn join-btn" id="join-room-btn">加入房间</button>
+            <aside class="setup-character-panel">
+                <p class="setup-character-label">当前角色</p>
+                <div id="setup-fullbody-display" class="setup-fullbody-display"></div>
+                <div class="setup-character-copy">
+                    <p id="setup-character-name" class="setup-character-name"></p>
+                    <p id="setup-character-title" class="setup-character-title"></p>
                 </div>
-            </div>
+                <div class="setup-avatar-row">
+                    <div id="setup-avatar-preview" class="setup-avatar-preview"></div>
+                    <p id="setup-avatar-mode" class="setup-avatar-mode"></p>
+                </div>
+            </aside>
         </div>
     </div>
 
@@ -266,6 +292,7 @@
     <script src="js/player.js"></script>
     <script src="js/ai.js"></script>
     <script src="js/game.js"></script>
+    <script src="js/audio.js"></script>
     <script src="js/network.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/main.js"></script>

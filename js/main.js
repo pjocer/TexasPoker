@@ -10,7 +10,19 @@
     let loggedInUser = null;
     let authToken = null;
     let currentNickname = null;
-    let currentAvatar = 'default';
+    let currentCharacterId = null;
+    let currentAvatarType = 'preset';
+    let currentAvatarData = null;
+    let selectedCharacterId = null;
+    let selectedAvatarType = 'preset';
+    let selectedAvatarData = null;
+    let characterManifest = {
+        defaultCharacterId: null,
+        aiCharacterIds: [],
+        characters: []
+    };
+    let characterMap = new Map();
+    let characterManifestPromise = null;
 
     // ==================== 登录/注册 ====================
     const authScreen = document.getElementById('auth-screen');
@@ -66,6 +78,165 @@
         return data;
     }
 
+    function storeCharacterManifest(manifest) {
+        characterManifest = {
+            defaultCharacterId: manifest.defaultCharacterId || null,
+            aiCharacterIds: Array.isArray(manifest.aiCharacterIds) ? manifest.aiCharacterIds : [],
+            characters: Array.isArray(manifest.characters) ? manifest.characters : []
+        };
+        characterMap = new Map(characterManifest.characters.map((character) => [character.id, character]));
+        ui.setCharacterManifest(characterManifest);
+    }
+
+    async function ensureCharacterManifest() {
+        if (!characterManifestPromise) {
+            characterManifestPromise = fetch('/src/characters/manifest.json')
+                .then((res) => readApiResponse(res, '角色资源加载失败'))
+                .then((data) => {
+                    if (!Array.isArray(data.characters) || data.characters.length === 0) {
+                        throw new Error(data.message || '角色资源为空');
+                    }
+                    storeCharacterManifest(data);
+                    return characterManifest;
+                })
+                .catch((error) => {
+                    characterManifestPromise = null;
+                    throw error;
+                });
+        }
+
+        return characterManifestPromise;
+    }
+
+    function normalizeAssetPath(assetPath) {
+        if (!assetPath) return '';
+        return assetPath.startsWith('/') ? assetPath : `/${assetPath}`;
+    }
+
+    function getCharacter(characterId) {
+        if (characterId && characterMap.has(characterId)) {
+            return characterMap.get(characterId);
+        }
+
+        if (characterManifest.defaultCharacterId && characterMap.has(characterManifest.defaultCharacterId)) {
+            return characterMap.get(characterManifest.defaultCharacterId);
+        }
+
+        return characterManifest.characters[0] || null;
+    }
+
+    function getCharacterId(characterId) {
+        const character = getCharacter(characterId);
+        return character ? character.id : null;
+    }
+
+    function getCharacterAsset(characterId, key) {
+        const character = getCharacter(characterId);
+        return character ? normalizeAssetPath(character[key]) : '';
+    }
+
+    function getEffectiveAvatarUrl(characterId, avatarType, avatarData) {
+        if (avatarType === 'custom' && avatarData) {
+            return avatarData;
+        }
+
+        return getCharacterAsset(characterId, 'avatarThumb')
+            || getCharacterAsset(characterId, 'avatarProfile');
+    }
+
+    function applyProfileState(data, fallbackNickname = null) {
+        currentNickname = data.nickname || fallbackNickname || currentNickname || '玩家';
+        currentCharacterId = getCharacterId(data.characterId);
+        currentAvatarType = data.avatarType === 'custom' ? 'custom' : 'preset';
+        currentAvatarData = currentAvatarType === 'custom' ? (data.avatarData || null) : null;
+    }
+
+    function getSharedAICharacterIds() {
+        const validIds = (characterManifest.aiCharacterIds || []).filter((characterId) => characterMap.has(characterId));
+        if (validIds.length > 0) return validIds;
+        return currentCharacterId ? [currentCharacterId] : [];
+    }
+
+    function updateSetupCharacterPreview() {
+        const fullBodyEl = document.getElementById('setup-fullbody-display');
+        const nameEl = document.getElementById('setup-character-name');
+        const titleEl = document.getElementById('setup-character-title');
+        const avatarEl = document.getElementById('setup-avatar-preview');
+        const modeEl = document.getElementById('setup-avatar-mode');
+        const character = getCharacter(currentCharacterId);
+
+        if (!fullBodyEl || !nameEl || !titleEl || !avatarEl || !modeEl || !character) {
+            return;
+        }
+
+        fullBodyEl.style.backgroundImage = character.fullBody ? `url(${normalizeAssetPath(character.fullBody)})` : '';
+        fullBodyEl.classList.toggle('has-image', !!character.fullBody);
+        nameEl.textContent = character.name;
+        titleEl.textContent = character.title || '内置角色';
+        setAvatarImage(avatarEl, currentCharacterId, currentAvatarType, currentAvatarData);
+        modeEl.textContent = currentAvatarType === 'custom' ? '当前使用自定义小头像' : '当前使用角色默认头像';
+    }
+
+    function updateProfileCharacterPreview() {
+        const fullBodyEl = document.getElementById('profile-character-full');
+        const nameEl = document.getElementById('profile-character-name');
+        const titleEl = document.getElementById('profile-character-title');
+        const previewEl = document.getElementById('profile-avatar-preview');
+        const character = getCharacter(selectedCharacterId);
+
+        if (!character) return;
+
+        if (fullBodyEl) {
+            fullBodyEl.style.backgroundImage = character.fullBody ? `url(${normalizeAssetPath(character.fullBody)})` : '';
+            fullBodyEl.classList.toggle('has-image', !!character.fullBody);
+        }
+        if (nameEl) nameEl.textContent = character.name;
+        if (titleEl) titleEl.textContent = character.title || '内置角色';
+        if (previewEl) {
+            setAvatarImage(previewEl, selectedCharacterId, selectedAvatarType, selectedAvatarData);
+        }
+
+        const avatarHint = document.getElementById('profile-avatar-hint');
+        if (avatarHint) {
+            avatarHint.textContent = selectedAvatarType === 'custom'
+                ? '当前使用自定义上传头像'
+                : '当前使用角色默认头像';
+        }
+    }
+
+    function renderProfileCharacterList() {
+        const list = document.getElementById('profile-character-list');
+        if (!list) return;
+
+        list.innerHTML = '';
+        characterManifest.characters.forEach((character) => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'profile-character-option';
+            if (character.id === selectedCharacterId) {
+                button.classList.add('selected');
+            }
+
+            button.innerHTML = `
+                <span class="profile-character-thumb" style="background-image:url(${normalizeAssetPath(character.avatarThumb)})"></span>
+                <span class="profile-character-copy">
+                    <span class="profile-character-option-name">${character.name}</span>
+                    <span class="profile-character-option-title">${character.title || '内置角色'}</span>
+                </span>
+            `;
+
+            button.addEventListener('click', () => {
+                selectedCharacterId = character.id;
+                list.querySelectorAll('.profile-character-option').forEach((option) => {
+                    option.classList.toggle('selected', option === button);
+                });
+                updateProfileCharacterPreview();
+            });
+
+            list.appendChild(button);
+        });
+    }
+
     loginBtn.addEventListener('click', async () => {
         const username = document.getElementById('login-username').value.trim();
         const password = document.getElementById('login-password').value;
@@ -79,6 +250,7 @@
         loginBtn.textContent = '登录中...';
 
         try {
+            await ensureCharacterManifest();
             const res = await fetch('/api/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -89,18 +261,16 @@
             if (data.success) {
                 loggedInUser = data.username;
                 authToken = data.token;
-                currentNickname = data.nickname || data.username;
-                currentAvatar = data.avatar || 'default';
-                currentAvatarData = data.avatarData || null;
-                authScreen.style.display = 'none';
-                setupScreen.style.display = 'flex';
+                applyProfileState(data, data.username);
+                showScreen('setup');
                 playerNameInput.value = currentNickname;
                 updateUserBadge();
+                updateSetupCharacterPreview();
             } else {
                 showAuthMessage(data.message, 'error');
             }
         } catch (e) {
-            showAuthMessage('网络错误，请重试', 'error');
+            showAuthMessage(e.message || '网络错误，请重试', 'error');
         } finally {
             loginBtn.disabled = false;
             loginBtn.textContent = '登 录';
@@ -167,15 +337,12 @@
     const badgeAvatar = document.getElementById('badge-avatar');
     const profileScreen = document.getElementById('profile-screen');
     const profileMessage = document.getElementById('profile-message');
+    const profileUsePresetBtn = document.getElementById('profile-use-preset-btn');
 
-    let currentAvatarData = null; // base64 data URL for custom avatars
-
-    function setAvatarImage(el, avatar, avatarData) {
-        if (avatar === 'custom' && avatarData) {
-            el.style.backgroundImage = `url(${avatarData})`;
-            el.classList.add('has-image');
-        } else if (avatar && avatar !== 'default') {
-            el.style.backgroundImage = `url(src/${avatar})`;
+    function setAvatarImage(el, characterId, avatarType, avatarData) {
+        const avatarUrl = getEffectiveAvatarUrl(characterId, avatarType, avatarData);
+        if (avatarUrl) {
+            el.style.backgroundImage = `url(${avatarUrl})`;
             el.classList.add('has-image');
         } else {
             el.style.backgroundImage = '';
@@ -185,8 +352,9 @@
 
     function updateUserBadge() {
         badgeNickname.textContent = currentNickname;
-        setAvatarImage(badgeAvatar, currentAvatar, currentAvatarData);
+        setAvatarImage(badgeAvatar, currentCharacterId, currentAvatarType, currentAvatarData);
         userBadge.style.display = 'flex';
+        updateSetupCharacterPreview();
     }
 
     // 点击徽章 -> 打开个人信息页
@@ -194,83 +362,42 @@
         openProfileScreen();
     });
 
-    function openProfileScreen() {
+    async function openProfileScreen() {
+        try {
+            await ensureCharacterManifest();
+        } catch (error) {
+            alert(error.message || '角色资源加载失败');
+            return;
+        }
+
         profileScreen.style.display = 'flex';
         userBadge.style.display = 'none';
         document.getElementById('profile-nickname').value = currentNickname;
         profileMessage.textContent = '';
         profileMessage.className = 'auth-message';
+        selectedCharacterId = currentCharacterId;
+        selectedAvatarType = currentAvatarType;
+        selectedAvatarData = currentAvatarData;
 
         // 清空密码字段
         document.getElementById('profile-current-password').value = '';
         document.getElementById('profile-new-password').value = '';
         document.getElementById('profile-confirm-password').value = '';
 
-        // 更新头像预览
-        const preview = document.getElementById('profile-avatar-preview');
-        setAvatarImage(preview, currentAvatar, currentAvatarData);
-
-        // 加载可用头像列表
-        loadAvatarList();
-    }
-
-    let selectedAvatar = currentAvatar;
-    let selectedAvatarData = null;
-
-    async function loadAvatarList() {
-        const list = document.getElementById('profile-avatar-list');
-        list.innerHTML = '';
-        selectedAvatar = currentAvatar;
-        selectedAvatarData = currentAvatar === 'custom' ? currentAvatarData : null;
-
-        if (currentAvatar === 'custom' && currentAvatarData) {
-            const customEl = document.createElement('div');
-            customEl.className = 'profile-avatar-option selected';
-            customEl.style.backgroundImage = `url(${currentAvatarData})`;
-            customEl.addEventListener('click', () => {
-                list.querySelectorAll('.profile-avatar-option').forEach(o => o.classList.remove('selected'));
-                customEl.classList.add('selected');
-                selectedAvatar = 'custom';
-                selectedAvatarData = currentAvatarData;
-                const preview = document.getElementById('profile-avatar-preview');
-                setAvatarImage(preview, 'custom', currentAvatarData);
-            });
-            list.appendChild(customEl);
-        }
-
-        try {
-            const res = await fetch('/api/avatars');
-            const data = await readApiResponse(res, '加载头像列表失败');
-            if (!data.success && !Array.isArray(data.avatars)) return;
-
-            data.avatars.forEach(av => {
-                const el = document.createElement('div');
-                el.className = 'profile-avatar-option';
-                if (av === 'default') {
-                    el.classList.add('default-avatar');
-                } else {
-                    el.style.backgroundImage = `url(src/${av})`;
-                }
-                if (av === currentAvatar) el.classList.add('selected');
-
-                el.addEventListener('click', () => {
-                    list.querySelectorAll('.profile-avatar-option').forEach(o => o.classList.remove('selected'));
-                    el.classList.add('selected');
-                    selectedAvatar = av;
-                    selectedAvatarData = null;
-                    const preview = document.getElementById('profile-avatar-preview');
-                    setAvatarImage(preview, av, null);
-                });
-
-                list.appendChild(el);
-            });
-        } catch (e) {}
+        renderProfileCharacterList();
+        updateProfileCharacterPreview();
     }
 
     function showProfileMessage(msg, type) {
         profileMessage.textContent = msg;
         profileMessage.className = 'auth-message ' + type;
     }
+
+    profileUsePresetBtn.addEventListener('click', () => {
+        selectedAvatarType = 'preset';
+        selectedAvatarData = null;
+        updateProfileCharacterPreview();
+    });
 
     // 保存昵称和头像
     document.getElementById('profile-save-btn').addEventListener('click', async () => {
@@ -284,17 +411,21 @@
             const res = await fetch('/api/profile/update', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-Auth-Token': authToken },
-                body: JSON.stringify({ nickname, avatar: selectedAvatar })
+                body: JSON.stringify({
+                    nickname,
+                    characterId: selectedCharacterId,
+                    avatarType: selectedAvatarType
+                })
             });
             const data = await readApiResponse(res, '保存个人信息失败');
             if (data.success) {
-                currentNickname = data.nickname;
-                currentAvatar = data.avatar;
-                currentAvatarData = data.avatar === 'custom'
-                    ? (data.avatarData || selectedAvatarData || currentAvatarData)
-                    : null;
+                applyProfileState(data, nickname);
+                selectedCharacterId = currentCharacterId;
+                selectedAvatarType = currentAvatarType;
                 selectedAvatarData = currentAvatarData;
                 playerNameInput.value = currentNickname;
+                updateUserBadge();
+                updateProfileCharacterPreview();
                 showProfileMessage('保存成功', 'success');
             } else {
                 showProfileMessage(data.message, 'error');
@@ -467,12 +598,12 @@
             });
             const data = await readApiResponse(res, '头像上传失败');
             if (data.success) {
-                currentAvatar = 'custom';
+                currentAvatarType = 'custom';
                 currentAvatarData = data.avatarData;
-                selectedAvatar = 'custom';
+                selectedAvatarType = 'custom';
                 selectedAvatarData = data.avatarData;
-                const preview = document.getElementById('profile-avatar-preview');
-                setAvatarImage(preview, 'custom', currentAvatarData);
+                updateProfileCharacterPreview();
+                updateUserBadge();
                 cropModal.style.display = 'none';
                 showProfileMessage('头像上传成功', 'success');
             } else {
@@ -625,7 +756,7 @@
             network = new Network();
             await network.connect(getWsUrl());
             bindNetworkEvents();
-            network.createRoom(name, settings);
+            network.createRoom(name, settings, authToken);
         } catch (e) {
             network = null;
             alert('连接服务器失败，请确认服务器已启动');
@@ -644,7 +775,7 @@
             network = new Network();
             await network.connect(getWsUrl());
             bindNetworkEvents();
-            network.joinRoom(roomId, name);
+            network.joinRoom(roomId, name, authToken);
         } catch (e) {
             network = null;
             alert('连接服务器失败，请确认服务器已启动');
@@ -668,14 +799,24 @@
 
     function bindNetworkEvents() {
         network.on('room_created', (msg) => {
-            isHost = msg.hostPlayerId === network.playerId;
-            showRoomScreen(msg.roomId, msg.players, msg.settings, msg.hostPlayerId);
+            showRoomScreen(
+                msg.roomId,
+                msg.players,
+                msg.settings,
+                msg.hostPlayerId,
+                msg.yourPlayerId || network.playerId
+            );
         });
 
         network.on('room_joined', (msg) => {
-            isHost = msg.hostPlayerId === network.playerId;
             if (!isOnlineMode) {
-                showRoomScreen(msg.roomId, msg.players, msg.settings, msg.hostPlayerId);
+                showRoomScreen(
+                    msg.roomId,
+                    msg.players,
+                    msg.settings,
+                    msg.hostPlayerId,
+                    msg.yourPlayerId || network.playerId
+                );
             }
         });
 
@@ -772,7 +913,9 @@
         return restored;
     }
 
-    function showRoomScreen(roomId, players, settings, hostPlayerId) {
+    function showRoomScreen(roomId, players, settings, hostPlayerId, yourPlayerId = null) {
+        isHost = !!hostPlayerId && hostPlayerId === yourPlayerId;
+
         showScreen('room');
         roomIdDisplay.textContent = roomId;
 
@@ -823,6 +966,10 @@
         } else {
             userBadge.style.display = 'none';
         }
+
+        if (name === 'setup') {
+            updateSetupCharacterPreview();
+        }
     }
 
     window.addEventListener('pagehide', () => {
@@ -830,6 +977,28 @@
             network.leaveRoom();
         }
     });
+
+    function assignLocalCharacterRoster() {
+        if (!game || !Array.isArray(game.players) || game.players.length === 0) return;
+
+        const aiCharacterIds = getSharedAICharacterIds();
+        let aiIndex = 0;
+
+        game.players.forEach((player, index) => {
+            if (index === 0) {
+                player.name = currentNickname || player.name;
+                player.characterId = getCharacterId(currentCharacterId);
+                player.avatarType = currentAvatarType;
+                player.avatarData = currentAvatarType === 'custom' ? currentAvatarData : null;
+                return;
+            }
+
+            player.characterId = aiCharacterIds[aiIndex % aiCharacterIds.length] || getCharacterId(currentCharacterId);
+            player.avatarType = 'preset';
+            player.avatarData = null;
+            aiIndex++;
+        });
+    }
 
     // ==================== 单机游戏逻辑 ====================
     function startLocalGame(settings) {
@@ -841,6 +1010,7 @@
         ui.network = null;
 
         game = new Game(settings);
+        assignLocalCharacterRoster();
         ui.game = game;
 
         ui.initPlayerSeats(game.players);
@@ -956,4 +1126,6 @@
             }
         }
     });
+
+    ensureCharacterManifest().catch(() => {});
 })();
