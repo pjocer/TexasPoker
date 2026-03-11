@@ -756,12 +756,30 @@ function handlePlayerAction(ws, msg) {
     }
 }
 
+function getRoomGamePlayer(room, playerId) {
+    if (!room || !room.game) return null;
+    return room.game.players.find((player) => player.playerId === playerId) || null;
+}
+
+function getAliveHumanRoomPlayers(room) {
+    if (!room || !room.game) return [];
+    return room.players.filter((roomPlayer) => {
+        const gamePlayer = getRoomGamePlayer(room, roomPlayer.playerId);
+        return !!gamePlayer && !gamePlayer.isBusted;
+    });
+}
+
 function handleNextHand(ws) {
     const info = wsPlayerMap.get(ws);
     const room = rooms.get(info.roomId);
     if (!room || !room.game) return;
 
-    // 任何玩家都可以触发下一手
+    const gamePlayer = getRoomGamePlayer(room, info.playerId);
+    if (!gamePlayer || gamePlayer.isBusted) {
+        send(ws, { type: MessageType.ROOM_ERROR, message: '你已出局，无需开始下一手' });
+        return;
+    }
+
     if (room._nextHandPending) {
         room._nextHandPending = false;
         room.game.startNewHand();
@@ -809,9 +827,23 @@ function startRoomGame(room) {
 
     game.onHandComplete = () => {
         room._nextHandPending = true;
-        // 通知所有人
+
+        const aliveHumanPlayers = getAliveHumanRoomPlayers(room);
+        if (aliveHumanPlayers.length === 0) {
+            setTimeout(() => {
+                if (!room._nextHandPending || !room.game) return;
+                room._nextHandPending = false;
+                room.game.startNewHand();
+            }, 1200);
+            return;
+        }
+
         room.players.forEach(p => {
-            send(p.ws, { type: MessageType.HAND_COMPLETE });
+            const gamePlayer = getRoomGamePlayer(room, p.playerId);
+            send(p.ws, {
+                type: MessageType.HAND_COMPLETE,
+                canAdvance: !!gamePlayer && !gamePlayer.isBusted
+            });
         });
     };
 

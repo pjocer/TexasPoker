@@ -855,7 +855,11 @@
             ui.addLogMessage(msg.text);
         });
 
-        network.on('hand_complete', () => {
+        network.on('hand_complete', (msg) => {
+            if (msg && msg.canAdvance === false) {
+                ui.hideNextHandButton();
+                return;
+            }
             ui.showNextHandButton(() => {
                 if (network) network.sendNextHand();
             });
