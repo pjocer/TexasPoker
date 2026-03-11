@@ -4,6 +4,7 @@
 
 class UI {
     constructor() {
+        this.gameScreen = document.getElementById('game-screen');
         this.tableArea = document.querySelector('.table-area');
         this.communityCardsEl = document.querySelector('.community-cards');
         this.potAmountEl = document.querySelector('.pot-amount');
@@ -12,6 +13,14 @@ class UI {
         this.nextHandBtn = document.querySelector('.next-hand-btn');
         this.restartBtn = document.querySelector('.restart-btn');
         this.infoPanel = document.querySelector('.info-panel');
+        this.chatOverlay = document.getElementById('chat-overlay');
+        this.chatComposer = document.getElementById('chat-composer');
+        this.chatInput = document.getElementById('chat-input');
+        this.chatSendBtn = document.getElementById('chat-send-btn');
+        this.handSummaryOverlay = document.getElementById('hand-summary-overlay');
+        this.handSummaryTitle = document.getElementById('hand-summary-title');
+        this.handSummaryPot = document.getElementById('hand-summary-pot');
+        this.handSummaryHint = document.getElementById('hand-summary-hint');
 
         this.playerSeats = [];
         this.game = null;
@@ -21,10 +30,19 @@ class UI {
         this.characterMap = new Map();
         this.audio = typeof AudioManager !== 'undefined' ? new AudioManager() : null;
         this._hasRenderedState = false;
+        this._activeChatBubbles = new Map();
+        this._chatSubmitHandler = null;
+        this._chatUiBound = false;
+        this._handSummaryHideTimer = null;
 
         // 倒计时
         this.timerInterval = null;
         this.timerSeconds = 30;
+
+        window.addEventListener('resize', () => {
+            this._repositionChatBubbles();
+            this._updateChatComposerOffset();
+        });
     }
 
     setCharacterManifest(manifest) {
@@ -64,6 +82,234 @@ class UI {
         seat.classList.add(`portrait-${placement}`);
     }
 
+    _bindChatComposerEvents() {
+        if (this._chatUiBound || !this.chatComposer || !this.chatInput || !this.chatSendBtn) return;
+        this._chatUiBound = true;
+
+        this.chatSendBtn.addEventListener('click', () => {
+            this._submitChatMessage();
+        });
+
+        this.chatInput.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' || event.shiftKey) return;
+            event.preventDefault();
+            event.stopPropagation();
+            this._submitChatMessage();
+        });
+    }
+
+    _submitChatMessage() {
+        if (!this._chatSubmitHandler || !this.chatInput) return;
+        const text = this.chatInput.value.trim();
+        if (!text) return;
+        this._chatSubmitHandler(text);
+        this.chatInput.value = '';
+    }
+
+    setChatEnabled(enabled, onSend = null) {
+        if (!this.chatComposer || !this.chatInput || !this.chatSendBtn) return;
+
+        this._bindChatComposerEvents();
+        this._chatSubmitHandler = enabled ? onSend : null;
+        this.chatComposer.classList.toggle('hidden', !enabled);
+        this.chatInput.disabled = !enabled;
+        this.chatSendBtn.disabled = !enabled;
+
+        if (!enabled) {
+            this.chatInput.value = '';
+            this._clearChatBubbles();
+        }
+
+        this._updateChatComposerOffset();
+    }
+
+    _updateChatComposerOffset() {
+        if (!this.gameScreen) return;
+
+        const tracked = [this.actionPanel, this.nextHandBtn, this.restartBtn];
+        let bottomStack = 0;
+
+        tracked.forEach((element) => {
+            if (!element || element.classList.contains('hidden')) return;
+            const computed = window.getComputedStyle(element);
+            if (computed.display === 'none' || computed.visibility === 'hidden') return;
+
+            const rect = element.getBoundingClientRect();
+            if (!rect.width || !rect.height) return;
+
+            bottomStack = Math.max(bottomStack, Math.max(0, window.innerHeight - rect.top) + 10);
+        });
+
+        this.gameScreen.style.setProperty('--chat-bottom-stack', `${bottomStack}px`);
+    }
+
+    _getVisibleSeatByPlayerId(playerId) {
+        if (!playerId) return null;
+        return this.playerSeats.find((seat) => seat.dataset.playerId === playerId) || null;
+    }
+
+    _getChatBubbleDuration(text) {
+        const normalizedLength = (text || '').trim().length;
+        return Math.max(2400, Math.min(6200, 1800 + (normalizedLength * 120)));
+    }
+
+    _destroyChatBubbleRecord(record) {
+        if (!record) return;
+        clearTimeout(record.hideTimer);
+        clearTimeout(record.removeTimer);
+        if (record.element && record.element.parentNode) {
+            record.element.remove();
+        }
+    }
+
+    _removeChatBubble(playerId, immediate = false) {
+        const record = this._activeChatBubbles.get(playerId);
+        if (!record) return;
+
+        this._activeChatBubbles.delete(playerId);
+        clearTimeout(record.hideTimer);
+        clearTimeout(record.removeTimer);
+
+        if (immediate || !record.element) {
+            this._destroyChatBubbleRecord(record);
+            return;
+        }
+
+        record.element.classList.add('leaving');
+        setTimeout(() => this._destroyChatBubbleRecord(record), 220);
+    }
+
+    _clearChatBubbles() {
+        this._activeChatBubbles.forEach((record) => this._destroyChatBubbleRecord(record));
+        this._activeChatBubbles.clear();
+    }
+
+    _positionChatBubble(bubble, seat) {
+        if (!bubble || !seat) return;
+
+        const portraitEl = seat.querySelector('.player-portrait');
+        const anchorEl = (portraitEl && portraitEl.classList.contains('has-image')) ? portraitEl : seat.querySelector('.player-info');
+        if (!anchorEl) return;
+
+        const anchorRect = anchorEl.getBoundingClientRect();
+        const bubbleRect = bubble.getBoundingClientRect();
+        const margin = 10;
+        const minAnchorX = margin + (bubbleRect.width / 2);
+        const maxAnchorX = window.innerWidth - margin - (bubbleRect.width / 2);
+        const anchorX = Math.min(maxAnchorX, Math.max(minAnchorX, anchorRect.left + (anchorRect.width / 2)));
+        const minAnchorY = margin + bubbleRect.height + 6;
+        const anchorY = Math.max(minAnchorY, anchorRect.top - 8);
+
+        bubble.style.left = `${anchorX}px`;
+        bubble.style.top = `${anchorY}px`;
+    }
+
+    _repositionChatBubbles() {
+        this._activeChatBubbles.forEach((record, playerId) => {
+            const seat = this._getVisibleSeatByPlayerId(playerId);
+            if (!seat) {
+                this._removeChatBubble(playerId, true);
+                return;
+            }
+            this._positionChatBubble(record.element, seat);
+        });
+    }
+
+    showPlayerChatBubble(playerId, text, playerName = '') {
+        if (!this.chatOverlay || !playerId || !text) return;
+
+        const seat = this._getVisibleSeatByPlayerId(playerId);
+        if (!seat) return;
+
+        this._removeChatBubble(playerId, true);
+
+        const bubble = document.createElement('div');
+        bubble.className = 'player-chat-bubble';
+        bubble.innerHTML = `
+            <div class="player-chat-bubble-author">${playerName || seat.dataset.playerName || '玩家'}</div>
+            <div class="player-chat-bubble-text"></div>
+        `;
+        bubble.querySelector('.player-chat-bubble-text').textContent = text;
+        this.chatOverlay.appendChild(bubble);
+        this._positionChatBubble(bubble, seat);
+
+        requestAnimationFrame(() => {
+            bubble.classList.add('visible');
+        });
+
+        const duration = this._getChatBubbleDuration(text);
+        const record = {
+            element: bubble,
+            hideTimer: setTimeout(() => {
+                bubble.classList.add('leaving');
+            }, Math.max(1200, duration - 220)),
+            removeTimer: setTimeout(() => {
+                this._removeChatBubble(playerId, true);
+            }, duration)
+        };
+
+        this._activeChatBubbles.set(playerId, record);
+    }
+
+    _formatHandSummaryTitle(summary) {
+        const winnerNames = Array.isArray(summary && summary.winnerNames)
+            ? summary.winnerNames.filter(Boolean)
+            : [];
+
+        if (winnerNames.length === 0) {
+            return '本手结束';
+        }
+
+        if (winnerNames.length === 1) {
+            return `${winnerNames[0]} 赢得本手`;
+        }
+
+        return `${winnerNames.join('、')} 平分本手`;
+    }
+
+    showHandSummaryOverlay(summary, duration = 2600) {
+        if (!this.handSummaryOverlay || !this.handSummaryTitle || !this.handSummaryPot || !this.handSummaryHint) {
+            return;
+        }
+
+        clearTimeout(this._handSummaryHideTimer);
+
+        const totalPot = Math.max(0, Number(summary && summary.totalPot) || 0);
+        this.handSummaryTitle.textContent = this._formatHandSummaryTitle(summary);
+        this.handSummaryPot.textContent = `底池 ${totalPot} 筹码`;
+        this.handSummaryHint.textContent = '即将开始下一局';
+
+        this.handSummaryOverlay.classList.remove('hidden', 'leaving');
+        requestAnimationFrame(() => {
+            this.handSummaryOverlay.classList.add('visible');
+        });
+
+        this._handSummaryHideTimer = setTimeout(() => {
+            this.hideHandSummaryOverlay();
+        }, Math.max(1200, duration - 180));
+    }
+
+    hideHandSummaryOverlay(immediate = false) {
+        if (!this.handSummaryOverlay) return;
+
+        clearTimeout(this._handSummaryHideTimer);
+        this._handSummaryHideTimer = null;
+
+        if (immediate || this.handSummaryOverlay.classList.contains('hidden')) {
+            this.handSummaryOverlay.classList.remove('visible', 'leaving');
+            this.handSummaryOverlay.classList.add('hidden');
+            return;
+        }
+
+        this.handSummaryOverlay.classList.remove('visible');
+        this.handSummaryOverlay.classList.add('leaving');
+        setTimeout(() => {
+            if (!this.handSummaryOverlay) return;
+            this.handSummaryOverlay.classList.remove('leaving');
+            this.handSummaryOverlay.classList.add('hidden');
+        }, 220);
+    }
+
     /**
      * 创建一张扑克牌的DOM
      */
@@ -95,6 +341,7 @@ class UI {
         // 清除旧座位
         this.playerSeats.forEach(el => el.remove());
         this.playerSeats = [];
+        this._clearChatBubbles();
 
         players.forEach((player, index) => {
             const seat = document.createElement('div');
@@ -122,6 +369,9 @@ class UI {
     updateState(state) {
         const shouldPlaySounds = this._hasRenderedState;
         this._lastState = state;
+        if (state.phase !== GamePhase.SHOWDOWN) {
+            this.hideHandSummaryOverlay(true);
+        }
         this.updatePot(state.pot);
         this.updateCommunityCards(state.communityCards);
         this.updatePlayers(state, shouldPlaySounds);
@@ -183,8 +433,14 @@ class UI {
             const cardsEl = seat.querySelector('.player-cards');
             const betChipEl = seat.querySelector('.player-bet-chip');
             const portraitEl = seat.querySelector('.player-portrait');
+            const previousPlayerId = seat.dataset.playerId || '';
 
             if (player.isVacant) {
+                if (previousPlayerId) {
+                    this._removeChatBubble(previousPlayerId, true);
+                }
+                seat.dataset.playerId = '';
+                seat.dataset.playerName = '';
                 nameEl.textContent = '空座';
                 chipsEl.textContent = '';
                 actionEl.textContent = '';
@@ -199,6 +455,12 @@ class UI {
                 return;
             }
 
+            if (previousPlayerId && previousPlayerId !== (player.playerId || '')) {
+                this._removeChatBubble(previousPlayerId, true);
+            }
+
+            seat.dataset.playerId = player.playerId || '';
+            seat.dataset.playerName = player.name || '';
             nameEl.textContent = player.name;
             chipsEl.textContent = `${player.chips}`;
             const portraitUrl = this._getCharacterAsset(player.characterId, 'tableBust');
@@ -291,6 +553,8 @@ class UI {
                 if (resultEl) resultEl.style.display = 'none';
             }
         });
+
+        this._repositionChatBubbles();
     }
 
     updateInfoPanel(state) {
@@ -480,12 +744,15 @@ class UI {
             raiseControls.appendChild(raiseBtn);
             this.actionPanel.appendChild(raiseControls);
         }
+
+        this._updateChatComposerOffset();
     }
 
     hideActionPanel() {
         this._clearTimer();
         this._currentOnlineActions = null;
         this.actionPanel.classList.add('hidden');
+        this._updateChatComposerOffset();
     }
 
     _clearTimer() {
@@ -517,27 +784,34 @@ class UI {
         this.nextHandBtn.classList.remove('hidden');
         this.nextHandBtn.onclick = () => {
             this.nextHandBtn.classList.add('hidden');
+            this._updateChatComposerOffset();
             callback();
         };
+        this._updateChatComposerOffset();
     }
 
     hideNextHandButton() {
         this.nextHandBtn.classList.add('hidden');
+        this._updateChatComposerOffset();
     }
 
     showRestartButton(callback) {
         this.restartBtn.classList.remove('hidden');
         this.restartBtn.onclick = () => {
             this.restartBtn.classList.add('hidden');
+            this._updateChatComposerOffset();
             callback();
         };
+        this._updateChatComposerOffset();
     }
 
     hideRestartButton() {
         this.restartBtn.classList.add('hidden');
+        this._updateChatComposerOffset();
     }
 
     showWinnerOverlay(winner) {
+        this.hideHandSummaryOverlay(true);
         if (this.audio) {
             this.audio.play('win');
         }
@@ -566,6 +840,8 @@ class UI {
         document.getElementById('setup-screen').style.display = 'flex';
         document.getElementById('room-screen').style.display = 'none';
         document.getElementById('game-screen').style.display = 'none';
+        this.hideHandSummaryOverlay(true);
+        this._updateChatComposerOffset();
     }
 
     showGameScreen() {
@@ -575,6 +851,9 @@ class UI {
         const badge = document.getElementById('user-badge');
         if (badge) badge.style.display = 'none';
         this._hasRenderedState = false;
+        this.hideHandSummaryOverlay(true);
+        this._updateChatComposerOffset();
+        this._repositionChatBubbles();
     }
 
     _playActionSound(actionText) {

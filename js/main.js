@@ -23,6 +23,15 @@
     };
     let characterMap = new Map();
     let characterManifestPromise = null;
+    let localNextHandTimer = null;
+    const AUTO_NEXT_HAND_DELAY_MS = 2600;
+
+    function clearLocalNextHandTimer() {
+        if (localNextHandTimer) {
+            clearTimeout(localNextHandTimer);
+            localNextHandTimer = null;
+        }
+    }
 
     // ==================== 登录/注册 ====================
     const authScreen = document.getElementById('auth-screen');
@@ -656,8 +665,10 @@
     function resetOnlineSessionState() {
         isOnlineMode = false;
         isHost = false;
+        clearLocalNextHandTimer();
         ui.network = null;
         ui._currentOnlineActions = null;
+        ui.setChatEnabled(false);
         gameLeaveBtn.style.display = 'none';
         ui.hideActionPanel();
         ui.hideNextHandButton();
@@ -832,6 +843,9 @@
                 isOnlineMode = true;
                 gameLeaveBtn.style.display = 'block';
                 ui.showGameScreen();
+                ui.setChatEnabled(true, (text) => {
+                    if (network) network.sendChat(text);
+                });
                 ui.clearLog();
                 ui.hideNextHandButton();
                 ui.hideRestartButton();
@@ -855,14 +869,13 @@
             ui.addLogMessage(msg.text);
         });
 
+        network.on('chat_message', (msg) => {
+            ui.showPlayerChatBubble(msg.playerId, msg.text, msg.playerName);
+        });
+
         network.on('hand_complete', (msg) => {
-            if (msg && msg.canAdvance === false) {
-                ui.hideNextHandButton();
-                return;
-            }
-            ui.showNextHandButton(() => {
-                if (network) network.sendNextHand();
-            });
+            ui.hideNextHandButton();
+            ui.showHandSummaryOverlay(msg && msg.summary, msg && msg.nextHandDelayMs);
         });
 
         network.on('game_over', (msg) => {
@@ -959,6 +972,10 @@
     }
 
     function showScreen(name) {
+        if (name !== 'game') {
+            clearLocalNextHandTimer();
+            ui.hideHandSummaryOverlay(true);
+        }
         authScreen.style.display = name === 'auth' ? 'flex' : 'none';
         profileScreen.style.display = 'none';
         setupScreen.style.display = name === 'setup' ? 'flex' : 'none';
@@ -1006,8 +1023,10 @@
 
     // ==================== 单机游戏逻辑 ====================
     function startLocalGame(settings) {
+        clearLocalNextHandTimer();
         gameLeaveBtn.style.display = 'none';
         ui.showGameScreen();
+        ui.setChatEnabled(false);
         ui.clearLog();
         ui.hideNextHandButton();
         ui.hideRestartButton();
@@ -1027,7 +1046,7 @@
             ui.addLogMessage(msg);
         };
 
-        game.onHandComplete = () => {
+        game.onHandComplete = (summary) => {
             const human = game.players[0];
             if (human.isBusted) {
                 ui.addLogMessage('你已出局!');
@@ -1037,12 +1056,19 @@
                 return;
             }
 
-            ui.showNextHandButton(() => {
-                game.startNewHand();
-            });
+            ui.hideNextHandButton();
+            ui.showHandSummaryOverlay(summary, AUTO_NEXT_HAND_DELAY_MS);
+            clearLocalNextHandTimer();
+            localNextHandTimer = setTimeout(() => {
+                localNextHandTimer = null;
+                if (game) {
+                    game.startNewHand();
+                }
+            }, AUTO_NEXT_HAND_DELAY_MS);
         };
 
         game.onGameOver = (winner) => {
+            clearLocalNextHandTimer();
             ui.showWinnerOverlay(winner);
             ui.showRestartButton(() => {
                 showScreen('setup');
@@ -1054,6 +1080,15 @@
 
     // ==================== 键盘快捷键 ====================
     document.addEventListener('keydown', (e) => {
+        const activeEl = document.activeElement;
+        const isTypingTarget = !!activeEl && (
+            activeEl.tagName === 'INPUT' ||
+            activeEl.tagName === 'TEXTAREA' ||
+            activeEl.tagName === 'SELECT' ||
+            activeEl.isContentEditable
+        );
+        if (isTypingTarget) return;
+
         // 联网模式下的快捷键
         if (isOnlineMode && network) {
             if (!ui._currentOnlineActions) return;

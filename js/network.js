@@ -78,6 +78,9 @@ class Network {
             case MessageType.MESSAGE:
                 this._emit('message', msg);
                 break;
+            case MessageType.CHAT_MESSAGE:
+                this._emit('chat_message', msg);
+                break;
             case MessageType.HAND_COMPLETE:
                 this._emit('hand_complete', msg);
                 break;
@@ -125,6 +128,13 @@ class Network {
 
     sendNextHand() {
         this._send({ type: MessageType.NEXT_HAND });
+    }
+
+    sendChat(text) {
+        this._send({
+            type: MessageType.SEND_CHAT,
+            text: text
+        });
     }
 
     leaveRoom() {

@@ -246,6 +246,15 @@
             <div class="log-content"></div>
         </div>
 
+        <div id="chat-overlay" class="chat-overlay"></div>
+        <div id="hand-summary-overlay" class="hand-summary-overlay hidden" aria-live="polite">
+            <div class="hand-summary-panel">
+                <div id="hand-summary-title" class="hand-summary-title">本手结束</div>
+                <div id="hand-summary-pot" class="hand-summary-pot">底池 0 筹码</div>
+                <div id="hand-summary-hint" class="hand-summary-hint">即将开始下一局</div>
+            </div>
+        </div>
+
         <!-- 牌桌区域 -->
         <div class="table-area">
             <div class="table-felt"></div>
@@ -262,6 +271,18 @@
 
         <!-- 操作面板 -->
         <div class="action-panel hidden"></div>
+
+        <div id="chat-composer" class="chat-composer hidden">
+            <input
+                type="text"
+                id="chat-input"
+                class="chat-input"
+                maxlength="80"
+                placeholder="发送聊天消息"
+                autocomplete="off"
+            >
+            <button id="chat-send-btn" class="chat-send-btn" type="button">发送</button>
+        </div>
 
         <!-- 下一手/重新开始 -->
         <button class="next-hand-btn hidden">开始下一手牌</button>

@@ -105,6 +105,7 @@ const MessageType = {
     START_GAME: 'start_game',
     PLAYER_ACTION: 'player_action',
     NEXT_HAND: 'next_hand',
+    SEND_CHAT: 'send_chat',
     // 服务端 → 客户端
     ROOM_CREATED: 'room_created',
     ROOM_JOINED: 'room_joined',
@@ -112,6 +113,7 @@ const MessageType = {
     GAME_STATE: 'game_state',
     YOUR_TURN: 'your_turn',
     MESSAGE: 'message',
+    CHAT_MESSAGE: 'chat_message',
     HAND_COMPLETE: 'hand_complete',
     GAME_OVER: 'game_over'
 };

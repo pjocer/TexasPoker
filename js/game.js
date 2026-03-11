@@ -20,6 +20,8 @@ class Game {
         this.actionHistory = [];
         this.lastRaiserIndex = -1;
         this.preflopAggressorIndex = -1;
+        this.lastHandSummary = null;
+        this._handPayoutSummary = this._createEmptyHandSummary();
 
         // 回调函数
         this.onStateChange = null;
@@ -29,6 +31,47 @@ class Game {
         this.onMessage = null;
 
         this._initPlayers();
+    }
+
+    _createEmptyHandSummary() {
+        return {
+            totalPot: 0,
+            winners: new Map()
+        };
+    }
+
+    _resetHandSummary() {
+        this.lastHandSummary = null;
+        this._handPayoutSummary = this._createEmptyHandSummary();
+    }
+
+    _recordHandPayout(winners, potAmount) {
+        if (!Array.isArray(winners) || winners.length === 0 || potAmount <= 0) return;
+
+        this._handPayoutSummary.totalPot += potAmount;
+        winners.forEach((player) => {
+            if (!player) return;
+            const key = player.playerId || `seat:${player.seatIndex}:${player.id}`;
+            if (!this._handPayoutSummary.winners.has(key)) {
+                this._handPayoutSummary.winners.set(key, player.name);
+            }
+        });
+    }
+
+    _finalizeHandSummary() {
+        const winnerNames = Array.from(this._handPayoutSummary.winners.values());
+        this.lastHandSummary = {
+            winnerNames,
+            totalPot: this._handPayoutSummary.totalPot
+        };
+    }
+
+    getLastHandSummary() {
+        if (!this.lastHandSummary) return null;
+        return {
+            winnerNames: [...this.lastHandSummary.winnerNames],
+            totalPot: this.lastHandSummary.totalPot
+        };
     }
 
     _initPlayers() {
@@ -100,6 +143,7 @@ class Game {
      */
     async startNewHand() {
         this.finalizePendingLeaves();
+        this._resetHandSummary();
 
         const activeBeforeHand = this.getActivePlayers();
         if (activeBeforeHand.length <= 1) {
@@ -301,8 +345,10 @@ class Game {
         const playersInHand = this.getPlayersInHand();
         if (playersInHand.length <= 1) {
             if (playersInHand.length === 1 && this.pot > 0) {
-                playersInHand[0].chips += this.pot;
-                this._emitMessage(`${playersInHand[0].name} 赢得 ${this.pot} 筹码!`);
+                const potAmount = this.pot;
+                playersInHand[0].chips += potAmount;
+                this._recordHandPayout([playersInHand[0]], potAmount);
+                this._emitMessage(`${playersInHand[0].name} 赢得 ${potAmount} 筹码!`);
                 this.pot = 0;
             }
             await this._endHand();
@@ -502,6 +548,7 @@ class Game {
 
         if (eligiblePlayers.length === 1) {
             eligiblePlayers[0].chips += potAmount;
+            this._recordHandPayout([eligiblePlayers[0]], potAmount);
             this._emitMessage(`${eligiblePlayers[0].name} 赢得 ${potAmount} 筹码!`);
             return;
         }
@@ -534,6 +581,7 @@ class Game {
         for (let i = 0; i < winners.length; i++) {
             winners[i].chips += share + (i === 0 ? remainder : 0);
         }
+        this._recordHandPayout(winners, potAmount);
 
         if (winners.length === 1) {
             const w = winners[0];
@@ -557,6 +605,7 @@ class Game {
         });
 
         this.finalizePendingLeaves();
+        this._finalizeHandSummary();
         this._emitStateChange();
 
         await this._delay(2500);
@@ -574,7 +623,7 @@ class Game {
         }
 
         if (this.onHandComplete) {
-            this.onHandComplete();
+            this.onHandComplete(this.getLastHandSummary());
         }
     }
 

@@ -29,6 +29,7 @@ const { Game } = require('./js/game.js');
 Object.assign(global, { Game });
 
 const { MessageType, GameMode, GamePhase, Action, AI_NAMES, DEFAULT_SETTINGS } = constants;
+const NEXT_HAND_DELAY_MS = 2600;
 
 const CHARACTER_MANIFEST_PATH = path.join(__dirname, 'src', 'characters', 'manifest.json');
 
@@ -207,6 +208,8 @@ app.use(express.static(path.join(__dirname)));
 
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
+const MAX_CHAT_LENGTH = 80;
+const CHAT_COOLDOWN_MS = 500;
 
 // ==================== 用户认证 API ====================
 
@@ -443,7 +446,7 @@ function generatePlayerId() {
 wss.on('connection', (ws) => {
     const playerId = generatePlayerId();
     ws.isAlive = true;
-    wsPlayerMap.set(ws, { playerId, roomId: null, playerName: null });
+    wsPlayerMap.set(ws, { playerId, roomId: null, playerName: null, lastChatAt: 0 });
 
     ws.on('pong', () => {
         ws.isAlive = true;
@@ -523,6 +526,13 @@ function clearActionTimeout(game) {
     }
 }
 
+function clearNextHandTimer(room) {
+    if (room && room._nextHandTimer) {
+        clearTimeout(room._nextHandTimer);
+        room._nextHandTimer = null;
+    }
+}
+
 function finishRoomGameIfNeeded(room) {
     if (!room.game) return false;
 
@@ -530,6 +540,7 @@ function finishRoomGameIfNeeded(room) {
     if (activePlayers.length > 1) return false;
 
     room._nextHandPending = false;
+    clearNextHandTimer(room);
     if (room.game.onGameOver) {
         room.game.onGameOver(activePlayers[0] || null);
     }
@@ -586,6 +597,7 @@ function leaveRoom(ws, reasonText = '离开牌桌') {
     }
 
     if (room.players.length === 0) {
+        clearNextHandTimer(room);
         rooms.delete(roomId);
         console.log(`Room ${roomId} deleted (no online players)`);
         return;
@@ -624,6 +636,9 @@ function handleMessage(ws, msg) {
             break;
         case MessageType.NEXT_HAND:
             handleNextHand(ws);
+            break;
+        case MessageType.SEND_CHAT:
+            handleChatMessage(ws, msg);
             break;
     }
 }
@@ -770,26 +785,43 @@ function getAliveHumanRoomPlayers(room) {
 }
 
 function handleNextHand(ws) {
-    const info = wsPlayerMap.get(ws);
-    const room = rooms.get(info.roomId);
-    if (!room || !room.game) return;
+    return;
+}
 
-    const gamePlayer = getRoomGamePlayer(room, info.playerId);
-    if (!gamePlayer || gamePlayer.isBusted) {
-        send(ws, { type: MessageType.ROOM_ERROR, message: '你已出局，无需开始下一手' });
+function handleChatMessage(ws, msg) {
+    const info = wsPlayerMap.get(ws);
+    if (!info || !info.roomId) return;
+
+    const room = rooms.get(info.roomId);
+    if (!room || !room.game || room.state !== 'playing') return;
+
+    const roomPlayer = room.players.find((player) => player.playerId === info.playerId);
+    if (!roomPlayer) return;
+
+    const now = Date.now();
+    if (now - (info.lastChatAt || 0) < CHAT_COOLDOWN_MS) {
         return;
     }
 
-    if (room._nextHandPending) {
-        room._nextHandPending = false;
-        room.game.startNewHand();
-    }
+    const text = String(msg.text || '').replace(/\s+/g, ' ').trim();
+    if (!text) return;
+
+    const normalizedText = text.slice(0, MAX_CHAT_LENGTH);
+    info.lastChatAt = now;
+
+    broadcastChatMessage(room, {
+        playerId: roomPlayer.playerId,
+        playerName: roomPlayer.playerName,
+        text: normalizedText
+    });
 }
 
 // ==================== 游戏逻辑 ====================
 
 function startRoomGame(room) {
     const game = new Game(room.settings);
+    clearNextHandTimer(room);
+    room._nextHandPending = false;
 
     // 覆盖 _initPlayers: 真人 + AI 填位
     game.players = [];
@@ -825,29 +857,34 @@ function startRoomGame(room) {
         broadcastMessage(room, msg);
     };
 
-    game.onHandComplete = () => {
+    game.onHandComplete = (summary) => {
         room._nextHandPending = true;
+        clearNextHandTimer(room);
 
-        const aliveHumanPlayers = getAliveHumanRoomPlayers(room);
-        if (aliveHumanPlayers.length === 0) {
-            setTimeout(() => {
-                if (!room._nextHandPending || !room.game) return;
-                room._nextHandPending = false;
-                room.game.startNewHand();
-            }, 1200);
-            return;
-        }
+        const handSummary = {
+            winnerNames: Array.isArray(summary && summary.winnerNames) ? summary.winnerNames : [],
+            totalPot: Number.isFinite(summary && summary.totalPot) ? summary.totalPot : 0
+        };
 
-        room.players.forEach(p => {
-            const gamePlayer = getRoomGamePlayer(room, p.playerId);
+        room.players.forEach((p) => {
             send(p.ws, {
                 type: MessageType.HAND_COMPLETE,
-                canAdvance: !!gamePlayer && !gamePlayer.isBusted
+                summary: handSummary,
+                nextHandDelayMs: NEXT_HAND_DELAY_MS
             });
         });
+
+        room._nextHandTimer = setTimeout(() => {
+            room._nextHandTimer = null;
+            if (!room._nextHandPending || !room.game) return;
+            room._nextHandPending = false;
+            room.game.startNewHand();
+        }, NEXT_HAND_DELAY_MS);
     };
 
     game.onGameOver = (winner) => {
+        clearNextHandTimer(room);
+        room._nextHandPending = false;
         room.players.forEach(p => {
             send(p.ws, {
                 type: MessageType.GAME_OVER,
@@ -980,6 +1017,17 @@ function broadcastGameState(room) {
 function broadcastMessage(room, text) {
     room.players.forEach(p => {
         send(p.ws, { type: MessageType.MESSAGE, text });
+    });
+}
+
+function broadcastChatMessage(room, payload) {
+    room.players.forEach((player) => {
+        send(player.ws, {
+            type: MessageType.CHAT_MESSAGE,
+            playerId: payload.playerId,
+            playerName: payload.playerName,
+            text: payload.text
+        });
     });
 }
 
