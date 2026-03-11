@@ -11,11 +11,13 @@ class Network {
         this._reconnectTimer = null;
         this._url = null;
         this._playerName = null;
+        this._intentionalClose = false;
     }
 
     connect(url) {
         return new Promise((resolve, reject) => {
             this._url = url;
+            this._intentionalClose = false;
             this.ws = new WebSocket(url);
 
             this.ws.onopen = () => {
@@ -31,8 +33,10 @@ class Network {
 
             this.ws.onclose = () => {
                 console.log('WebSocket closed');
-                this._emit('disconnected');
-                this._scheduleReconnect();
+                if (!this._intentionalClose) {
+                    this._emit('disconnected');
+                }
+                this.ws = null;
             };
 
             this.ws.onmessage = (event) => {
@@ -51,10 +55,12 @@ class Network {
         switch (msg.type) {
             case MessageType.ROOM_CREATED:
                 this.roomId = msg.roomId;
+                this.playerId = msg.yourPlayerId || this.playerId;
                 this._emit('room_created', msg);
                 break;
             case MessageType.ROOM_JOINED:
                 this.roomId = msg.roomId;
+                this.playerId = msg.yourPlayerId || this.playerId;
                 this._emit('room_joined', msg);
                 break;
             case MessageType.ROOM_ERROR:
@@ -119,6 +125,13 @@ class Network {
         this._send({ type: MessageType.NEXT_HAND });
     }
 
+    leaveRoom() {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN && this.roomId) {
+            this.ws.send(JSON.stringify({ type: MessageType.LEAVE_ROOM }));
+        }
+        this.disconnect();
+    }
+
     on(event, callback) {
         if (!this.callbacks[event]) {
             this.callbacks[event] = [];
@@ -143,25 +156,6 @@ class Network {
         }
     }
 
-    _scheduleReconnect() {
-        if (this._reconnectTimer) return;
-        this._reconnectTimer = setTimeout(() => {
-            this._reconnectTimer = null;
-            if (this._url) {
-                console.log('Attempting reconnect...');
-                this.connect(this._url).then(() => {
-                    // 重新加入房间
-                    if (this.roomId && this._playerName) {
-                        this.joinRoom(this.roomId, this._playerName);
-                    }
-                    this._emit('reconnected');
-                }).catch(() => {
-                    this._scheduleReconnect();
-                });
-            }
-        }, 3000);
-    }
-
     _clearReconnect() {
         if (this._reconnectTimer) {
             clearTimeout(this._reconnectTimer);
@@ -170,10 +164,14 @@ class Network {
     }
 
     disconnect() {
+        this._intentionalClose = true;
         this._clearReconnect();
         if (this.ws) {
-            this.ws.close();
+            const socket = this.ws;
             this.ws = null;
+            if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+                socket.close();
+            }
         }
         this.roomId = null;
         this.playerId = null;

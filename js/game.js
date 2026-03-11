@@ -87,10 +87,31 @@ class Game {
         return this.players.filter(p => p.isActive);
     }
 
+    finalizePendingLeaves() {
+        this.players.forEach((player) => {
+            if (player.pendingLeave) {
+                player.markVacant();
+            }
+        });
+    }
+
     /**
      * 开始新一手牌
      */
     async startNewHand() {
+        this.finalizePendingLeaves();
+
+        const activeBeforeHand = this.getActivePlayers();
+        if (activeBeforeHand.length <= 1) {
+            if (activeBeforeHand.length === 1) {
+                this._emitMessage(`🎉 ${activeBeforeHand[0].name} 赢得了整场比赛!`);
+            }
+            if (this.onGameOver) {
+                this.onGameOver(activeBeforeHand[0] || null);
+            }
+            return;
+        }
+
         this.handNumber++;
 
         // 重置
@@ -534,6 +555,9 @@ class Game {
                 this._emitMessage(`${p.name} 已淘汰!`);
             }
         });
+
+        this.finalizePendingLeaves();
+        this._emitStateChange();
 
         await this._delay(2500);
 

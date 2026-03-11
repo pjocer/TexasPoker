@@ -19,6 +19,8 @@ class Player {
         this.lastAction = null;
         this.handResult = null;    // 摊牌结果
         this.seatIndex = 0;
+        this.isVacant = false;     // 真人离桌后留下的空座
+        this.pendingLeave = false; // 当前手结束后真正清空座位
     }
 
     reset() {
@@ -55,6 +57,24 @@ class Player {
         return !this.isFolded && !this.isBusted;
     }
 
+    markVacant() {
+        this.name = '空座';
+        this.chips = 0;
+        this.isHuman = false;
+        this.playerId = null;
+        this.holeCards = [];
+        this.currentBet = 0;
+        this.totalBet = 0;
+        this.isFolded = true;
+        this.isAllIn = false;
+        this.isBusted = true;
+        this.isDealer = false;
+        this.lastAction = null;
+        this.handResult = null;
+        this.isVacant = true;
+        this.pendingLeave = false;
+    }
+
     toJSON(showCards = false) {
         return {
             id: this.id,
@@ -71,7 +91,8 @@ class Player {
             isDealer: this.isDealer,
             lastAction: this.lastAction,
             handResult: this.handResult,
-            seatIndex: this.seatIndex
+            seatIndex: this.seatIndex,
+            isVacant: this.isVacant
         };
     }
 }

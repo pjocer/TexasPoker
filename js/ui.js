@@ -127,6 +127,7 @@ class UI {
 
             // 状态类
             seat.classList.toggle('busted', player.isBusted);
+            seat.classList.toggle('vacant', !!player.isVacant);
             seat.classList.toggle('active-turn', index === state.currentPlayerIndex);
             seat.classList.toggle('dealer', player.isDealer);
 
@@ -136,6 +137,19 @@ class UI {
             const actionEl = seat.querySelector('.player-action');
             const cardsEl = seat.querySelector('.player-cards');
             const betChipEl = seat.querySelector('.player-bet-chip');
+
+            if (player.isVacant) {
+                nameEl.textContent = '空座';
+                chipsEl.textContent = '';
+                actionEl.textContent = '';
+                actionEl.dataset.lastAction = '';
+                cardsEl.dataset.cardKey = 'vacant';
+                cardsEl.innerHTML = '';
+                betChipEl.style.display = 'none';
+                const resultEl = seat.querySelector('.player-hand-result');
+                if (resultEl) resultEl.style.display = 'none';
+                return;
+            }
 
             nameEl.textContent = player.name;
             chipsEl.textContent = `${player.chips}`;
@@ -500,5 +514,7 @@ class UI {
         document.getElementById('setup-screen').style.display = 'none';
         document.getElementById('room-screen').style.display = 'none';
         document.getElementById('game-screen').style.display = 'block';
+        const badge = document.getElementById('user-badge');
+        if (badge) badge.style.display = 'none';
     }
 }

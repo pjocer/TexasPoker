@@ -101,6 +101,7 @@ const MessageType = {
     // 客户端 → 服务端
     CREATE_ROOM: 'create_room',
     JOIN_ROOM: 'join_room',
+    LEAVE_ROOM: 'leave_room',
     START_GAME: 'start_game',
     PLAYER_ACTION: 'player_action',
     NEXT_HAND: 'next_hand',

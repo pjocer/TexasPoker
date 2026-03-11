@@ -6,6 +6,10 @@ const express = require('express');
 const http = require('http');
 const { WebSocketServer } = require('ws');
 const path = require('path');
+const crypto = require('crypto');
+const fs = require('fs');
+const os = require('os');
+const Database = require('better-sqlite3');
 
 // 加载共享模块
 // 先把 constants 注入 global, 因为 card.js/deck.js 等在浏览器中依赖全局变量
@@ -26,17 +30,278 @@ Object.assign(global, { Game });
 
 const { MessageType, GameMode, GamePhase, Action, AI_NAMES, DEFAULT_SETTINGS } = constants;
 
+// ==================== 用户数据库 ====================
+
+const DB_DIR = path.join(os.homedir(), '.funplus', 'texas_poker');
+fs.mkdirSync(DB_DIR, { recursive: true });
+
+const db = new Database(path.join(DB_DIR, 'users.db'));
+db.pragma('journal_mode = WAL');
+
+db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        salt TEXT NOT NULL,
+        nickname TEXT,
+        avatar TEXT DEFAULT 'default',
+        created_at TEXT DEFAULT (datetime('now'))
+    )
+`);
+
+function ensureUserSchema() {
+    const columns = new Set(
+        db.prepare(`PRAGMA table_info(users)`).all().map((column) => column.name)
+    );
+    const migrations = [
+        {
+            name: 'nickname',
+            sql: `ALTER TABLE users ADD COLUMN nickname TEXT`
+        },
+        {
+            name: 'avatar',
+            sql: `ALTER TABLE users ADD COLUMN avatar TEXT DEFAULT 'default'`
+        },
+        {
+            name: 'avatar_data',
+            sql: `ALTER TABLE users ADD COLUMN avatar_data TEXT`
+        }
+    ];
+
+    migrations.forEach(({ name, sql }) => {
+        if (columns.has(name)) return;
+        db.exec(sql);
+    });
+}
+
+ensureUserSchema();
+
+function hashPassword(password, salt) {
+    return crypto.scryptSync(password, salt, 64).toString('hex');
+}
+
+// 会话管理
+const sessions = new Map(); // token -> username
+
+function generateToken() {
+    return crypto.randomBytes(32).toString('hex');
+}
+
+function getSessionUser(req) {
+    const token = req.headers['x-auth-token'];
+    return token ? sessions.get(token) : null;
+}
+
+function serializeUserProfile(user) {
+    return {
+        nickname: user.nickname || user.username,
+        avatar: user.avatar || 'default',
+        avatarData: user.avatar === 'custom' ? (user.avatar_data || null) : null
+    };
+}
+
+function getUserProfile(username) {
+    const user = db
+        .prepare('SELECT username, nickname, avatar, avatar_data FROM users WHERE username = ?')
+        .get(username);
+    return user ? serializeUserProfile(user) : null;
+}
+
 // ==================== Express + HTTP ====================
 
 const app = express();
+app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(__dirname)));
 
 const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
+// ==================== 用户认证 API ====================
+
+app.post('/api/register', (req, res) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+        return res.json({ success: false, message: '用户名和密码不能为空' });
+    }
+    if (username.length < 2 || username.length > 12) {
+        return res.json({ success: false, message: '用户名长度需为 2-12 个字符' });
+    }
+    if (password.length < 4) {
+        return res.json({ success: false, message: '密码至少 4 个字符' });
+    }
+
+    const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
+    if (existing) {
+        return res.json({ success: false, message: '用户名已被注册' });
+    }
+
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = hashPassword(password, salt);
+
+    db.prepare('INSERT INTO users (username, password_hash, salt, nickname) VALUES (?, ?, ?, ?)').run(username, hash, salt, username);
+    res.json({ success: true, username });
+});
+
+app.post('/api/login', (req, res) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+        return res.json({ success: false, message: '用户名和密码不能为空' });
+    }
+
+    const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+    if (!user) {
+        return res.json({ success: false, message: '用户名或密码错误' });
+    }
+
+    const hash = hashPassword(password, user.salt);
+    if (hash !== user.password_hash) {
+        return res.json({ success: false, message: '用户名或密码错误' });
+    }
+
+    const token = generateToken();
+    sessions.set(token, user.username);
+
+    res.json({
+        success: true,
+        username: user.username,
+        ...serializeUserProfile(user),
+        token
+    });
+});
+
+// ==================== 个人信息 API ====================
+
+app.post('/api/profile/update', (req, res) => {
+    try {
+        const username = getSessionUser(req);
+        if (!username) return res.json({ success: false, message: '未登录' });
+
+        const { nickname, avatar } = req.body;
+
+        if (nickname !== undefined) {
+            const trimmed = (nickname || '').trim();
+            if (trimmed.length < 1 || trimmed.length > 12) {
+                return res.json({ success: false, message: '昵称长度需为 1-12 个字符' });
+            }
+            db.prepare('UPDATE users SET nickname = ? WHERE username = ?').run(trimmed, username);
+        }
+
+        if (avatar !== undefined) {
+            const normalizedAvatar = typeof avatar === 'string' ? avatar.trim() : '';
+            if (!normalizedAvatar) {
+                return res.json({ success: false, message: '头像参数无效' });
+            }
+
+            const shouldClearCustomAvatar = normalizedAvatar !== 'custom';
+            db.prepare(
+                `UPDATE users
+                 SET avatar = ?,
+                     avatar_data = CASE WHEN ? THEN NULL ELSE avatar_data END
+                 WHERE username = ?`
+            ).run(normalizedAvatar, shouldClearCustomAvatar ? 1 : 0, username);
+        }
+
+        const profile = getUserProfile(username);
+        res.json({ success: true, ...profile });
+    } catch (error) {
+        console.error('Profile update failed:', error);
+        res.status(500).json({ success: false, message: '保存个人信息失败' });
+    }
+});
+
+app.post('/api/profile/avatar-upload', (req, res) => {
+    try {
+        const username = getSessionUser(req);
+        if (!username) return res.json({ success: false, message: '未登录' });
+
+        const { imageData } = req.body;
+        if (!imageData || !imageData.startsWith('data:image/')) {
+            return res.json({ success: false, message: '无效的图片数据' });
+        }
+
+        // 限制大小 (~500KB base64)
+        if (imageData.length > 700000) {
+            return res.json({ success: false, message: '图片过大，请裁剪后上传' });
+        }
+
+        db.prepare('UPDATE users SET avatar = ?, avatar_data = ? WHERE username = ?').run('custom', imageData, username);
+        res.json({ success: true, avatar: 'custom', avatarData: imageData });
+    } catch (error) {
+        console.error('Avatar upload failed:', error);
+        res.status(500).json({ success: false, message: '头像上传接口异常' });
+    }
+});
+
+app.post('/api/profile/password', (req, res) => {
+    try {
+        const username = getSessionUser(req);
+        if (!username) return res.json({ success: false, message: '未登录' });
+
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            return res.json({ success: false, message: '请填写完整' });
+        }
+        if (newPassword.length < 4) {
+            return res.json({ success: false, message: '新密码至少 4 个字符' });
+        }
+
+        const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+        const hash = hashPassword(currentPassword, user.salt);
+        if (hash !== user.password_hash) {
+            return res.json({ success: false, message: '当前密码错误' });
+        }
+
+        const newSalt = crypto.randomBytes(16).toString('hex');
+        const newHash = hashPassword(newPassword, newSalt);
+        db.prepare('UPDATE users SET password_hash = ?, salt = ? WHERE username = ?').run(newHash, newSalt, username);
+
+        res.json({ success: true, message: '密码修改成功' });
+    } catch (error) {
+        console.error('Password update failed:', error);
+        res.status(500).json({ success: false, message: '密码修改失败' });
+    }
+});
+
+app.get('/api/avatars', (req, res) => {
+    const srcDir = path.join(__dirname, 'src');
+    const avatars = ['default'];
+    try {
+        const files = fs.readdirSync(srcDir);
+        files.forEach(f => {
+            if (/\.(png|jpg|jpeg|gif|svg|webp)$/i.test(f)) {
+                avatars.push(f);
+            }
+        });
+    } catch (e) {}
+    res.json({ avatars });
+});
+
+app.use((err, req, res, next) => {
+    if (!err) return next();
+
+    if (req.path.startsWith('/api/')) {
+        if (err.type === 'entity.too.large') {
+            return res.status(413).json({ success: false, message: '请求数据过大，请重新裁剪图片' });
+        }
+        if (err instanceof SyntaxError && 'body' in err) {
+            return res.status(400).json({ success: false, message: '请求体不是有效的 JSON' });
+        }
+
+        console.error('Unhandled API error:', err);
+        return res.status(500).json({ success: false, message: '服务器内部错误' });
+    }
+
+    next(err);
+});
+
 // ==================== WebSocket ====================
 
 const wss = new WebSocketServer({ server });
+const WS_HEARTBEAT_MS = 15000;
 
 // 房间管理
 const rooms = new Map();
@@ -57,7 +322,12 @@ function generatePlayerId() {
 
 wss.on('connection', (ws) => {
     const playerId = generatePlayerId();
+    ws.isAlive = true;
     wsPlayerMap.set(ws, { playerId, roomId: null, playerName: null });
+
+    ws.on('pong', () => {
+        ws.isAlive = true;
+    });
 
     ws.on('message', (data) => {
         let msg;
@@ -70,15 +340,146 @@ wss.on('connection', (ws) => {
     });
 
     ws.on('close', () => {
-        handleDisconnect(ws);
+        leaveRoom(ws, '连接断开，已离开牌桌');
         wsPlayerMap.delete(ws);
     });
+});
+
+const wsHeartbeatTimer = setInterval(() => {
+    wss.clients.forEach((ws) => {
+        if (ws.isAlive === false) {
+            ws.terminate();
+            return;
+        }
+
+        ws.isAlive = false;
+        try {
+            ws.ping();
+        } catch (error) {
+            ws.terminate();
+        }
+    });
+}, WS_HEARTBEAT_MS);
+
+server.on('close', () => {
+    clearInterval(wsHeartbeatTimer);
 });
 
 function send(ws, msg) {
     if (ws.readyState === 1) {
         ws.send(JSON.stringify(msg));
     }
+}
+
+function getRoomPlayerList(room) {
+    return room.players.map((player) => ({
+        playerId: player.playerId,
+        playerName: player.playerName
+    }));
+}
+
+function sendRoomSnapshot(ws, room, playerId, type = MessageType.ROOM_JOINED) {
+    send(ws, {
+        type,
+        roomId: room.id,
+        players: getRoomPlayerList(room),
+        settings: room.settings,
+        hostPlayerId: room.hostPlayerId,
+        yourPlayerId: playerId
+    });
+}
+
+function broadcastRoomSnapshot(room) {
+    room.players.forEach((player) => {
+        sendRoomSnapshot(player.ws, room, player.playerId, MessageType.ROOM_JOINED);
+    });
+}
+
+function clearActionTimeout(game) {
+    if (game && game._actionTimeout) {
+        clearTimeout(game._actionTimeout);
+        game._actionTimeout = null;
+    }
+}
+
+function finishRoomGameIfNeeded(room) {
+    if (!room.game) return false;
+
+    const activePlayers = room.game.getActivePlayers();
+    if (activePlayers.length > 1) return false;
+
+    room._nextHandPending = false;
+    if (room.game.onGameOver) {
+        room.game.onGameOver(activePlayers[0] || null);
+    }
+    return true;
+}
+
+function leaveRoom(ws, reasonText = '离开牌桌') {
+    const info = wsPlayerMap.get(ws);
+    if (!info || !info.roomId) return;
+
+    const roomId = info.roomId;
+    info.roomId = null;
+
+    const room = rooms.get(roomId);
+    if (!room) return;
+
+    room.players = room.players.filter((player) => player.playerId !== info.playerId);
+
+    if (room.game) {
+        const gamePlayer = room.game.players.find((player) => player.playerId === info.playerId);
+        if (gamePlayer) {
+            const playerName = gamePlayer.name;
+            const handSettled = !!room._nextHandPending;
+            gamePlayer.pendingLeave = true;
+            gamePlayer.isHuman = false;
+            gamePlayer.playerId = null;
+
+            broadcastMessage(room, `${playerName} ${reasonText}`);
+
+            if (handSettled) {
+                room.game.finalizePendingLeaves();
+                if (!finishRoomGameIfNeeded(room)) {
+                    broadcastGameState(room);
+                }
+            } else if (
+                room.game.currentPlayerIndex >= 0 &&
+                room.game.players[room.game.currentPlayerIndex] === gamePlayer &&
+                room.game._humanActionResolve
+            ) {
+                clearActionTimeout(room.game);
+                const resolve = room.game._humanActionResolve;
+                room.game._humanActionResolve = null;
+                resolve({ action: Action.FOLD, amount: 0 });
+            } else {
+                if (gamePlayer.isInHand && !gamePlayer.isAllIn && !gamePlayer.isFolded) {
+                    gamePlayer.fold();
+                }
+                if (!gamePlayer.isAllIn) {
+                    gamePlayer.lastAction = '离桌';
+                }
+                broadcastGameState(room);
+            }
+        }
+    }
+
+    if (room.players.length === 0) {
+        rooms.delete(roomId);
+        console.log(`Room ${roomId} deleted (no online players)`);
+        return;
+    }
+
+    if (room.hostPlayerId === info.playerId) {
+        room.hostPlayerId = room.players[0].playerId;
+        broadcastMessage(room, `房主已变更为 ${room.players[0].playerName}`);
+    }
+
+    if (room.state === 'waiting') {
+        broadcastRoomSnapshot(room);
+    }
+
+    console.log(`Player ${info.playerName} left room ${roomId}`);
 }
 
 // ==================== 消息处理 ====================
@@ -90,6 +491,9 @@ function handleMessage(ws, msg) {
             break;
         case MessageType.JOIN_ROOM:
             handleJoinRoom(ws, msg);
+            break;
+        case MessageType.LEAVE_ROOM:
+            leaveRoom(ws, '主动离开牌桌');
             break;
         case MessageType.START_GAME:
             handleStartGame(ws);
@@ -137,12 +541,7 @@ function handleCreateRoom(ws, msg) {
     rooms.set(roomId, room);
     info.roomId = roomId;
 
-    send(ws, {
-        type: MessageType.ROOM_CREATED,
-        roomId: roomId,
-        settings: settings,
-        players: room.players.map(p => ({ playerId: p.playerId, playerName: p.playerName }))
-    });
+    sendRoomSnapshot(ws, room, info.playerId, MessageType.ROOM_CREATED);
 
     console.log(`Room ${roomId} created by ${playerName}`);
 }
@@ -174,17 +573,7 @@ function handleJoinRoom(ws, msg) {
     });
     info.roomId = roomId;
 
-    const playerList = room.players.map(p => ({ playerId: p.playerId, playerName: p.playerName }));
-
-    // 通知所有人
-    room.players.forEach(p => {
-        send(p.ws, {
-            type: MessageType.ROOM_JOINED,
-            roomId: roomId,
-            players: playerList,
-            settings: room.settings
-        });
-    });
+    broadcastRoomSnapshot(room);
 
     console.log(`${playerName} joined room ${roomId} (${room.players.length}/${room.settings.playerCount})`);
 }
@@ -229,6 +618,7 @@ function handlePlayerAction(ws, msg) {
 
     // 提交操作
     if (game._humanActionResolve) {
+        clearActionTimeout(game);
         const resolve = game._humanActionResolve;
         game._humanActionResolve = null;
         resolve({ action, amount });
@@ -245,61 +635,6 @@ function handleNextHand(ws) {
         room._nextHandPending = false;
         room.game.startNewHand();
     }
-}
-
-function handleDisconnect(ws) {
-    const info = wsPlayerMap.get(ws);
-    if (!info || !info.roomId) return;
-
-    const room = rooms.get(info.roomId);
-    if (!room) return;
-
-    // 从房间中移除玩家
-    room.players = room.players.filter(p => p.playerId !== info.playerId);
-
-    if (room.players.length === 0) {
-        rooms.delete(info.roomId);
-        console.log(`Room ${info.roomId} deleted (empty)`);
-        return;
-    }
-
-    // 如果游戏进行中，将断线玩家标记为AI接管
-    if (room.game) {
-        const gamePlayer = room.game.players.find(p => p.playerId === info.playerId);
-        if (gamePlayer) {
-            gamePlayer.isHuman = false;
-            gamePlayer.playerId = null;
-            broadcastMessage(room, `${gamePlayer.name} 断线，由AI接管`);
-
-            // 如果当前轮到断线玩家，用AI决策
-            if (room.game.currentPlayerIndex >= 0 &&
-                room.game.players[room.game.currentPlayerIndex] === gamePlayer &&
-                room.game._humanActionResolve) {
-                const aiAction = AI.decide(gamePlayer, room.game.getState());
-                const resolve = room.game._humanActionResolve;
-                room.game._humanActionResolve = null;
-                resolve(aiAction);
-            }
-        }
-    }
-
-    // 如果房主离开，转移房主
-    if (room.hostPlayerId === info.playerId && room.players.length > 0) {
-        room.hostPlayerId = room.players[0].playerId;
-    }
-
-    // 通知剩余玩家
-    const playerList = room.players.map(p => ({ playerId: p.playerId, playerName: p.playerName }));
-    room.players.forEach(p => {
-        send(p.ws, {
-            type: MessageType.ROOM_JOINED,
-            roomId: room.id,
-            players: playerList,
-            settings: room.settings
-        });
-    });
-
-    console.log(`Player ${info.playerName} disconnected from room ${info.roomId}`);
 }
 
 // ==================== 游戏逻辑 ====================
@@ -357,13 +692,11 @@ function startRoomGame(room) {
     };
 
     // 重写等待人类操作
-    const originalWait = game._waitForHumanAction.bind(game);
     game._waitForHumanAction = (player) => {
         // 找到对应的ws连接
         const roomPlayer = room.players.find(p => p.playerId === player.playerId);
         if (!roomPlayer) {
-            // 玩家断线，AI接管
-            return Promise.resolve(AI.decide(player, game.getState()));
+            return Promise.resolve({ action: Action.FOLD, amount: 0 });
         }
 
         // 计算可用操作
@@ -393,6 +726,7 @@ function startRoomGame(room) {
                         resolve({ action: Action.FOLD, amount: 0 });
                     }
                 }
+                game._actionTimeout = null;
             }, 30000);
         });
     };
@@ -460,7 +794,8 @@ function broadcastGameState(room) {
                     isDealer: p.isDealer,
                     lastAction: p.lastAction,
                     handResult: (isMe || show) ? p.handResult : null,
-                    seatIndex: p.seatIndex
+                    seatIndex: p.seatIndex,
+                    isVacant: !!p.isVacant
                 };
             }),
             communityCards: state.communityCards.map(c => c.toJSON ? c.toJSON() : c),
