@@ -24,10 +24,10 @@
         "built-in",
         "preset"
       ],
-      "avatarThumb": "src/characters/char_001/avatar/thumb.svg",
-      "avatarProfile": "src/characters/char_001/avatar/profile.svg",
-      "tableBust": "src/characters/char_001/table/bust.svg",
-      "fullBody": "src/characters/char_001/full/full.svg",
+      "avatarThumb": "src/characters/char_001/avatar/thumb.png",
+      "avatarProfile": "src/characters/char_001/avatar/profile.png",
+      "tableBust": "src/characters/char_001/table/bust.png",
+      "fullBody": "src/characters/char_001/full/full.png",
       "palette": {
         "primary": "#B43F5A",
         "secondary": "#F7C873",
@@ -44,10 +44,10 @@
         "built-in",
         "preset"
       ],
-      "avatarThumb": "src/characters/char_002/avatar/thumb.svg",
-      "avatarProfile": "src/characters/char_002/avatar/profile.svg",
-      "tableBust": "src/characters/char_002/table/bust.svg",
-      "fullBody": "src/characters/char_002/full/full.svg",
+      "avatarThumb": "src/characters/char_002/avatar/thumb.png",
+      "avatarProfile": "src/characters/char_002/avatar/profile.png",
+      "tableBust": "src/characters/char_002/table/bust.png",
+      "fullBody": "src/characters/char_002/full/full.png",
       "palette": {
         "primary": "#3A6EA5",
         "secondary": "#9FD8CB",
@@ -64,10 +64,10 @@
         "built-in",
         "preset"
       ],
-      "avatarThumb": "src/characters/char_003/avatar/thumb.svg",
-      "avatarProfile": "src/characters/char_003/avatar/profile.svg",
-      "tableBust": "src/characters/char_003/table/bust.svg",
-      "fullBody": "src/characters/char_003/full/full.svg",
+      "avatarThumb": "src/characters/char_003/avatar/thumb.png",
+      "avatarProfile": "src/characters/char_003/avatar/profile.png",
+      "tableBust": "src/characters/char_003/table/bust.png",
+      "fullBody": "src/characters/char_003/full/full.png",
       "palette": {
         "primary": "#7A4E2D",
         "secondary": "#E7A95A",
@@ -84,10 +84,10 @@
         "built-in",
         "preset"
       ],
-      "avatarThumb": "src/characters/char_004/avatar/thumb.svg",
-      "avatarProfile": "src/characters/char_004/avatar/profile.svg",
-      "tableBust": "src/characters/char_004/table/bust.svg",
-      "fullBody": "src/characters/char_004/full/full.svg",
+      "avatarThumb": "src/characters/char_004/avatar/thumb.png",
+      "avatarProfile": "src/characters/char_004/avatar/profile.png",
+      "tableBust": "src/characters/char_004/table/bust.png",
+      "fullBody": "src/characters/char_004/full/full.png",
       "palette": {
         "primary": "#574B90",
         "secondary": "#B8A1FF",
@@ -104,10 +104,10 @@
         "built-in",
         "preset"
       ],
-      "avatarThumb": "src/characters/char_005/avatar/thumb.svg",
-      "avatarProfile": "src/characters/char_005/avatar/profile.svg",
-      "tableBust": "src/characters/char_005/table/bust.svg",
-      "fullBody": "src/characters/char_005/full/full.svg",
+      "avatarThumb": "src/characters/char_005/avatar/thumb.png",
+      "avatarProfile": "src/characters/char_005/avatar/profile.png",
+      "tableBust": "src/characters/char_005/table/bust.png",
+      "fullBody": "src/characters/char_005/full/full.png",
       "palette": {
         "primary": "#2F7F68",
         "secondary": "#BFE3C0",
@@ -124,10 +124,10 @@
         "built-in",
         "preset"
       ],
-      "avatarThumb": "src/characters/char_006/avatar/thumb.svg",
-      "avatarProfile": "src/characters/char_006/avatar/profile.svg",
-      "tableBust": "src/characters/char_006/table/bust.svg",
-      "fullBody": "src/characters/char_006/full/full.svg",
+      "avatarThumb": "src/characters/char_006/avatar/thumb.png",
+      "avatarProfile": "src/characters/char_006/avatar/profile.png",
+      "tableBust": "src/characters/char_006/table/bust.png",
+      "fullBody": "src/characters/char_006/full/full.png",
       "palette": {
         "primary": "#9A6B2E",
         "secondary": "#FFD68A",
@@ -144,10 +144,10 @@
         "built-in",
         "preset"
       ],
-      "avatarThumb": "src/characters/char_007/avatar/thumb.svg",
-      "avatarProfile": "src/characters/char_007/avatar/profile.svg",
-      "tableBust": "src/characters/char_007/table/bust.svg",
-      "fullBody": "src/characters/char_007/full/full.svg",
+      "avatarThumb": "src/characters/char_007/avatar/thumb.png",
+      "avatarProfile": "src/characters/char_007/avatar/profile.png",
+      "tableBust": "src/characters/char_007/table/bust.png",
+      "fullBody": "src/characters/char_007/full/full.png",
       "palette": {
         "primary": "#7D8EA3",
         "secondary": "#E3ECF8",
@@ -164,10 +164,10 @@
         "built-in",
         "preset"
       ],
-      "avatarThumb": "src/characters/char_008/avatar/thumb.svg",
-      "avatarProfile": "src/characters/char_008/avatar/profile.svg",
-      "tableBust": "src/characters/char_008/table/bust.svg",
-      "fullBody": "src/characters/char_008/full/full.svg",
+      "avatarThumb": "src/characters/char_008/avatar/thumb.png",
+      "avatarProfile": "src/characters/char_008/avatar/profile.png",
+      "tableBust": "src/characters/char_008/table/bust.png",
+      "fullBody": "src/characters/char_008/full/full.png",
       "palette": {
         "primary": "#345D7E",
         "secondary": "#8EB8D8",
@@ -184,10 +184,10 @@
         "built-in",
         "preset"
       ],
-      "avatarThumb": "src/characters/char_009/avatar/thumb.svg",
-      "avatarProfile": "src/characters/char_009/avatar/profile.svg",
-      "tableBust": "src/characters/char_009/table/bust.svg",
-      "fullBody": "src/characters/char_009/full/full.svg",
+      "avatarThumb": "src/characters/char_009/avatar/thumb.png",
+      "avatarProfile": "src/characters/char_009/avatar/profile.png",
+      "tableBust": "src/characters/char_009/table/bust.png",
+      "fullBody": "src/characters/char_009/full/full.png",
       "palette": {
         "primary": "#9D3D3D",
         "secondary": "#FFB28B",
@@ -204,10 +204,10 @@
         "built-in",
         "preset"
       ],
-      "avatarThumb": "src/characters/char_010/avatar/thumb.svg",
-      "avatarProfile": "src/characters/char_010/avatar/profile.svg",
-      "tableBust": "src/characters/char_010/table/bust.svg",
-      "fullBody": "src/characters/char_010/full/full.svg",
+      "avatarThumb": "src/characters/char_010/avatar/thumb.png",
+      "avatarProfile": "src/characters/char_010/avatar/profile.png",
+      "tableBust": "src/characters/char_010/table/bust.png",
+      "fullBody": "src/characters/char_010/full/full.png",
       "palette": {
         "primary": "#6F4DA7",
         "secondary": "#F3B8FF",
@@ -224,10 +224,10 @@
         "built-in",
         "preset"
       ],
-      "avatarThumb": "src/characters/char_011/avatar/thumb.svg",
-      "avatarProfile": "src/characters/char_011/avatar/profile.svg",
-      "tableBust": "src/characters/char_011/table/bust.svg",
-      "fullBody": "src/characters/char_011/full/full.svg",
+      "avatarThumb": "src/characters/char_011/avatar/thumb.png",
+      "avatarProfile": "src/characters/char_011/avatar/profile.png",
+      "tableBust": "src/characters/char_011/table/bust.png",
+      "fullBody": "src/characters/char_011/full/full.png",
       "palette": {
         "primary": "#25506B",
         "secondary": "#7AC0E5",
@@ -244,10 +244,10 @@
         "built-in",
         "preset"
       ],
-      "avatarThumb": "src/characters/char_012/avatar/thumb.svg",
-      "avatarProfile": "src/characters/char_012/avatar/profile.svg",
-      "tableBust": "src/characters/char_012/table/bust.svg",
-      "fullBody": "src/characters/char_012/full/full.svg",
+      "avatarThumb": "src/characters/char_012/avatar/thumb.png",
+      "avatarProfile": "src/characters/char_012/avatar/profile.png",
+      "tableBust": "src/characters/char_012/table/bust.png",
+      "fullBody": "src/characters/char_012/full/full.png",
       "palette": {
         "primary": "#8D5333",
         "secondary": "#F6C08A",

@@ -50,6 +50,20 @@ class UI {
         return character[key].startsWith('/') ? character[key] : `/${character[key]}`;
     }
 
+    _getSeatPortraitPlacement(index) {
+        if (index === 0) return 'bottom';
+        if (index === 3) return 'top';
+        if (index === 1 || index === 2) return 'left';
+        if (index === 4 || index === 5) return 'right';
+        return 'top';
+    }
+
+    _applySeatPortraitPlacement(seat, index) {
+        const placement = this._getSeatPortraitPlacement(index);
+        seat.classList.remove('portrait-top', 'portrait-bottom', 'portrait-left', 'portrait-right');
+        seat.classList.add(`portrait-${placement}`);
+    }
+
     /**
      * 创建一张扑克牌的DOM
      */
@@ -86,9 +100,10 @@ class UI {
             const seat = document.createElement('div');
             seat.className = 'player-seat';
             seat.dataset.seat = index;
+            this._applySeatPortraitPlacement(seat, index);
             seat.innerHTML = `
-                <div class="player-portrait"></div>
                 <div class="player-info">
+                    <div class="player-portrait"></div>
                     <div class="player-name">${player.name}</div>
                     <div class="player-chips">${player.chips}</div>
                     <div class="player-action"></div>
